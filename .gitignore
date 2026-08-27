@@ -67,3 +67,16 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+
+.idea/
+*.iml
+
+# Android Studio / Gradle generated files
+.gradle/
+build/
+.cxx/
+captures/
+
+# Local configuration
+local.properties

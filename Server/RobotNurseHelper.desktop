@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Name=RobotNurseHelper
+Comment=A helper application for a robot nurse
+Path=/home/chihyuan/RobotNurseHelper/Server
+Exec=bash -c "cd \"$HOME/RobotNurseHelper/Server\" && ./run_server_side_program.sh 4070"
+Icon=ZenboNurse.png
+Terminal=false
+Type=Application
+Categories=Utility;

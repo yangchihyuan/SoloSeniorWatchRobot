@@ -1,0 +1,235 @@
+cmake_minimum_required(VERSION 3.14)    #FetchContent_MakeAvailable() requires CMake 3.14 higher (I am using 4.2.1)
+project(RobotNurseHelper)
+
+include(FetchContent) # 1. Load the "FetchContent" toolset
+
+FetchContent_Declare(
+    json
+    URL https://github.com/nlohmann/json/archive/refs/tags/v3.11.3.zip
+)
+
+FetchContent_MakeAvailable(json) # 2. Download and prepare it NOW
+
+option(USE_GPU "USE GPU" ON)
+option(COMPILE_WITH_G_FLAG "COMPILE WITH G FLAG" ON)   #if OFF, executable size 2.5MB; if ON, 88MB
+if(NOT DEFINED ROBOT_MODEL)
+  set(ROBOT_MODEL Kebbi)    #default robot model is Kebbi
+endif()
+
+set(CMAKE_CXX_STANDARD 20)    #17 is not enough, EmotiEffLib's xtensor requires C++20
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+#The three settings used by Qt
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTORCC ON)
+
+function(my_protobuf_generate_cpp PROTO_SRCS PROTO_HDRS PROTO_FILES)    
+  foreach(PROTO_FILE ${PROTO_FILES})
+    # Extract the base name of the .proto file
+    get_filename_component(PROTO_BASE ${PROTO_FILE} NAME_WE)
+    get_filename_component(PROTO_DIR ${PROTO_FILE} DIRECTORY)
+
+    # Define the output .pb.cc and .pb.h files
+    set(PROTO_CC "${CMAKE_CURRENT_BINARY_DIR}/${PROTO_DIR}/${PROTO_BASE}.pb.cc")
+    set(PROTO_HH "${CMAKE_CURRENT_BINARY_DIR}/${PROTO_DIR}/${PROTO_BASE}.pb.h")
+    message(STATUS "CMAKE_CURRENT_BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}")             #CMAKE_CURRENT_BINARY_DIR = /home/chihyuan/RobotNurseHelper/Server/build
+
+    # Run protoc to generate the C++ files
+    add_custom_command(
+      OUTPUT ${PROTO_CC} ${PROTO_HH}
+      COMMAND protoc --cpp_out=${CMAKE_CURRENT_BINARY_DIR} --proto_path=${CMAKE_CURRENT_SOURCE_DIR} ${PROTO_FILE}
+      DEPENDS ${PROTO_FILE}
+      COMMENT "Generating C++ protobuf files from ${PROTO_FILE}"
+      VERBATIM
+    )
+
+    # Add the generated files to the output lists
+    list(APPEND ${PROTO_SRCS} ${PROTO_CC})
+    list(APPEND ${PROTO_HDRS} ${PROTO_HH})
+  endforeach()
+
+  # Set the output lists as variables in the parent scope
+  set(${PROTO_SRCS} ${${PROTO_SRCS}} PARENT_SCOPE)
+  set(${PROTO_HDRS} ${${PROTO_HDRS}} PARENT_SCOPE)
+endfunction()
+
+
+#set the custom path for the find_package
+list(APPEND CMAKE_PREFIX_PATH "usr/local")
+
+# use Mediapipe's Protobuf
+set(MEDIAPIPE_DIR "$ENV{HOME}/mediapipe")
+get_filename_component(MEDIAPIPE_DIRNAME "${MEDIAPIPE_DIR}" NAME)
+
+#protocol buffer v3.19.1 is used by mediapipe
+#The variable protobuf_source_dir is used in the libprotobuf.cmake file
+#The protobuf_source_dir is used to find the protobuf source code
+set(protobuf_source_dir "${MEDIAPIPE_DIR}/bazel-${MEDIAPIPE_DIRNAME}/external/com_google_protobuf")
+include("${CMAKE_CURRENT_SOURCE_DIR}/libprotobuf.cmake")     #this is the modified cmake file provided by LibMP's author
+set(PROTO_FILE ${ROBOT_MODEL}/RobotCommand.proto)
+#Because I don't use the pre-built opencv, I don't have the protobuf_generate_cpp function. I need to define it by myself.
+my_protobuf_generate_cpp(PROTO_SRC PROTO_HDR ${PROTO_FILE})
+include_directories(${CMAKE_CURRENT_BINARY_DIR})
+
+find_package(OpenCV COMPONENTS core highgui videoio imgproc imgcodecs dnn calib3d REQUIRED)
+find_package(Qt6 COMPONENTS Core Widgets Network Multimedia MultimediaWidgets REQUIRED)   
+find_package(ICU REQUIRED COMPONENTS uc)
+
+file(GLOB_RECURSE HEADERS ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp)
+set(ROBOTNURSEHELPER_BUILD_DIR "$ENV{HOME}/RobotNurseHelper_build")
+
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64")
+    set(ONNX_DIR_NAME "onnxruntime-linux-aarch64-1.22.0")
+else()
+    set(ONNX_DIR_NAME "onnxruntime-linux-x64-gpu-1.22.0")
+endif()
+
+set(OLLAMA_HPP_INCLUDE_DIR "${ROBOTNURSEHELPER_BUILD_DIR}/ollama-hpp/include")
+set(ONNX_HPP_INCLUDE_DIR "${ROBOTNURSEHELPER_BUILD_DIR}/${ONNX_DIR_NAME}/include")
+set(SILERO_HPP_INCLUDE_DIR "${ROBOTNURSEHELPER_BUILD_DIR}/silero-vad/examples/cpp")
+set(SOURCES AnythingLLM.cpp
+            GetLandmarks.cpp
+            JPEG.cpp
+            SendMessageManager.cpp
+            SocketBufferParser.cpp
+            SocketClientHandler.cpp
+            ThreadPortAudio.cpp
+            ThreadProcessImage.cpp
+            ThreadStateControl.cpp
+            ThreadWhisper.cpp
+            ThreadLLM.cpp
+            VideoWindow.cpp
+            Yolo11Pose.cpp 
+            main.cpp
+            mainwindow.cpp
+            utility_directory.cpp
+            utility_TimeRecorder.cpp
+            utility_compute.cpp
+            utility_string.cpp
+            utility_time.cpp
+            utility_KebbiMotion.cpp
+            utility_compass.cpp
+            silero-vad-onnx.cpp
+    )
+
+# robot-specific files    
+set(SOURCES2 ${ROBOT_MODEL}/LandmarkToRobotAction.cpp
+             ${ROBOT_MODEL}/ThreadReceiveMessage.cpp
+             ${ROBOT_MODEL}/mainwindow.cpp
+             ${ROBOT_MODEL}/mainwindow.ui
+             ${PROTO_SRC})
+
+message(STATUS 'PROTO_SRC ${PROTO_SRC}')             
+
+# whisper.cpp v1.7.5
+add_library(LIBWHISPER SHARED IMPORTED)
+set(WHISPER_DIR $ENV{HOME}/RobotNurseHelper_build/whisper.cpp)
+set_target_properties(LIBWHISPER PROPERTIES
+  IMPORTED_LOCATION "${WHISPER_DIR}/build/src/libwhisper.so")
+target_include_directories(LIBWHISPER INTERFACE "${WHISPER_DIR}/include" "${WHISPER_DIR}/ggml/include" ${WHISPER_DIR}/examples)
+set(WHISPER_EXAMPLE_SOURCES ${WHISPER_DIR}/examples/common.cpp)
+
+add_executable(RobotNurseHelper ${SOURCES} ${SOURCES2} ${HEADERS} ${WHISPER_EXAMPLE_SOURCES})
+
+
+
+# LibMP
+add_library(LIBMP SHARED IMPORTED)
+set(LIBMP_TARGET_NAME "libmp")
+set(LIBMP_BIN_DIR "${MEDIAPIPE_DIR}/bazel-bin/mediapipe/examples/desktop/${LIBMP_TARGET_NAME}")
+message(STATUS "USE_GPU: ${USE_GPU}")
+if(USE_GPU)
+  set(LIBMP_SHARED_LIBRARY "${LIBMP_BIN_DIR}/${LIBMP_TARGET_NAME}_gpu.so")
+  target_compile_definitions(RobotNurseHelper
+  PRIVATE
+    USE_GPU
+  )
+else()
+  set(LIBMP_SHARED_LIBRARY "${LIBMP_BIN_DIR}/${LIBMP_TARGET_NAME}.so")
+  message(STATUS "Enter USE CPU")
+endif()
+set_target_properties(LIBMP PROPERTIES
+  IMPORTED_LOCATION "${LIBMP_SHARED_LIBRARY}"
+)
+set(LIBMP_HEADER_DIR ${MEDIAPIPE_DIR}/mediapipe/examples/desktop/libmp)
+target_include_directories(LIBMP INTERFACE ${LIBMP_HEADER_DIR})
+
+# MediaPipe Formats
+file(GLOB_RECURSE MP_FORMATS_SRC "${MEDIAPIPE_DIR}/bazel-bin/mediapipe/framework/formats/*.cc")
+add_library(MP_FORMATS STATIC ${MP_FORMATS_SRC})
+target_include_directories(MP_FORMATS PUBLIC "${MEDIAPIPE_DIR}/bazel-bin")
+target_link_libraries(MP_FORMATS libprotobuf)
+
+target_link_libraries(RobotNurseHelper MP_FORMATS)
+target_link_libraries(RobotNurseHelper LIBMP)
+
+#ICU, International Components for Unicode. Why do I need this?
+#It appears that I need to use the UTF-8 string in Qt6. Really?
+target_link_libraries(RobotNurseHelper ${ICU_LIBRARIES})
+
+
+# ONNX
+add_library(LIBONNX SHARED IMPORTED)
+set(ONNX_DIR "${ROBOTNURSEHELPER_BUILD_DIR}/${ONNX_DIR_NAME}")
+set_target_properties(LIBONNX PROPERTIES
+  IMPORTED_LOCATION "${ONNX_DIR}/lib/libonnxruntime.so")
+
+#EmotiEffNet
+add_library(LIBEmotiEffNet SHARED IMPORTED)      #give the target a name
+set_target_properties(LIBEmotiEffNet PROPERTIES
+  IMPORTED_LOCATION "${ROBOTNURSEHELPER_BUILD_DIR}/EmotiEffLib/emotieffcpplib/build/lib/libemotiefflib.so")
+target_link_libraries(RobotNurseHelper LIBEmotiEffNet)
+target_include_directories(RobotNurseHelper PUBLIC "${ROBOTNURSEHELPER_BUILD_DIR}/EmotiEffLib/emotieffcpplib/include"
+  "${ROBOTNURSEHELPER_BUILD_DIR}/EmotiEffLib/emotieffcpplib/3rdparty/xtensor/include"
+  "${ROBOTNURSEHELPER_BUILD_DIR}/EmotiEffLib/emotieffcpplib/3rdparty/xtl/include")
+
+#dlib for face recognition
+#The second parameter is the build directory of dlib
+add_subdirectory(${ROBOTNURSEHELPER_BUILD_DIR}/dlib-20.0/dlib ${ROBOTNURSEHELPER_BUILD_DIR}/dlib-20.0/dlib_build)
+target_link_libraries(RobotNurseHelper dlib::dlib)
+
+#InspireFace
+add_library(LIBINSPIREFACE SHARED IMPORTED)
+set(INSPIREFACE_DIR "$ENV{HOME}/RobotNurseHelper_build/InspireFace/build/inspireface-linux-ubuntu/InspireFace")
+set_target_properties(LIBINSPIREFACE PROPERTIES
+  IMPORTED_LOCATION "${INSPIREFACE_DIR}/lib/libInspireFace.so")
+target_include_directories(RobotNurseHelper PRIVATE "${INSPIREFACE_DIR}/include")
+target_link_libraries(RobotNurseHelper LIBINSPIREFACE)
+
+#httplib
+add_library(LIBHTTPLIB SHARED IMPORTED)
+set_target_properties(LIBHTTPLIB PROPERTIES
+  IMPORTED_LOCATION "${ROBOTNURSEHELPER_BUILD_DIR}/cpp-httplib/httplib.h")
+target_include_directories(RobotNurseHelper PRIVATE "${ROBOTNURSEHELPER_BUILD_DIR}/cpp-httplib")
+target_link_libraries(RobotNurseHelper LIBHTTPLIB)
+
+#Enalbe the debug mode
+if(COMPILE_WITH_G_FLAG)
+  set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")   
+endif()
+
+#add the include directories
+include_directories(${CMAKE_SOURCE_DIR} ${ROBOT_MODEL} ${PROTOBUF_INCLUDE_DIRS} ${OpenCV_INCLUDE_DIRS} ${OLLAMA_HPP_INCLUDE_DIR} ${ONNX_HPP_INCLUDE_DIR} ${SILERO_HPP_INCLUDE_DIR})
+set_target_properties(${TARGET_NAME} PROPERTIES "CMAKE_CXX_FLAGS" "${CMAKE_CXX_FLAGS}")
+
+target_link_libraries(RobotNurseHelper LIBWHISPER
+    Qt::Core Qt::Widgets Qt::Network
+    Qt::Multimedia Qt::MultimediaWidgets ${OpenCV_LIBS} portaudio LIBONNX nlohmann_json::nlohmann_json)
+
+#set the compile definition
+if(ROBOT_MODEL STREQUAL "Kebbi")
+  target_compile_definitions(RobotNurseHelper
+    PRIVATE
+      USE_KEBBI
+  )
+  target_include_directories(RobotNurseHelper PRIVATE Kebbi)
+elseif(ROBOT_MODEL STREQUAL "Zenbo")
+  target_compile_definitions(RobotNurseHelper
+    PRIVATE
+      USE_ZENBO
+  )
+  target_include_directories(RobotNurseHelper PRIVATE Zenbo)
+else()
+  message(FATAL_ERROR "Please set the robot model")
+endif()
