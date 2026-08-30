@@ -1,7 +1,7 @@
 {
-    "StateControlFile": "json/Cataractproject.json",
+    "StateControlFile": "json/Cataractproject_English_Test.json",
     "bServerPlaysRobotReceivedAudio": false,
-    "bVideoWindowFullScreen": true,
+    "bVideoWindowFullScreen": false,
     "bShowPreviewWindow": false,
     "bSaveImages": true,
     "iImageSaveIntervalMillisecond": 5000,
@@ -16,9 +16,10 @@
     "WhisperModel": "$HOME/RobotNurseHelper_build/whisper.cpp/models/ggml-large-v3-turbo.bin",
     "ImageSaveDirectory": "$HOME/Downloads/raw_images",
     "LanguageModel": "gemma3:1b",           //The setting does not work. Now the model is controlled by the AnythingLLM workspace. The setting is reserved for future use.
-    "Language": "Chinese",
-    "AnythingLLM_API_key": "B5Q49XV-0P04PY2-KJ4TRSQ-250ZSYE",
+    "Language": "English",
+    "AnythingLLM_API_key": "HP840RN-2CKMV0A-G1YM8J2-FBT39FX",
     "AnythingLLM_workspace_slug": "cataract",
     "Machine": "PC",                      //AGXOrin, PC
-    "bHideCursor": true
+    "bHideCursor": true,
+    "iTextFontSize": 48
 }

@@ -1,5 +1,5 @@
 #!/bin/bash
-#Chih-Yuan Yang 2026/8/6
+#Chih-Yuan Yang 2026/8/03
 #Build the Robot Nurse Helper project with CMake
 #I wrote this shell script file to call another shell script file.
 
@@ -14,7 +14,10 @@ if [ $# == 1 ]; then
         echo "Building for Kebbi"
         cmake -S . -B build -DROBOT_MODEL=Kebbi -DCMAKE_CXX_FLAGS="-Wno-psabi"
         cmake --build build -j $(nproc)
+    else
+        echo "Invalid argument: $1"
+        echo "Usage: ./build_project.sh [clean|Zenbo|ZenboJrII|Kebbi]"
     fi
 else
-    echo "Please specify a valid target: clean, Zenbo, ZenboJrII, or Kebbi"
+    echo "Usage: ./build_project.sh [clean|Zenbo|ZenboJrII|Kebbi]"
 fi

@@ -58,9 +58,6 @@ void SocketBufferParser::add_data(char* data_, size_t length)
         buffer_length += length;
     }
 
-    //debug
-    cout << "SocketBufferParser::add_data: length = " << length << ", buffer_length = " << buffer_length << endl;
-
     //find delimiter_tail in buffer
     int delimiter_tail_length = delimiter_tail.length();
     
@@ -121,8 +118,6 @@ void SocketBufferParser::add_data(char* data_, size_t length)
                     this_DataFrame.data = shared_ptr<char[]>(new char[DataFrame_length]);
                     this_DataFrame.length = DataFrame_length;
                     memcpy(this_DataFrame.data.get(), buffer.get()+delimiter_head.length()+sizeof(int), DataFrame_length);
-                    //debug
-                    cout << "Add a new Dataframe to the queue. DataFrame_length: " << DataFrame_length << endl;
                     pDataFrames_queue->push(this_DataFrame);
                     if( pNofitiedCondVar != nullptr )
                         pNofitiedCondVar->notify_one();

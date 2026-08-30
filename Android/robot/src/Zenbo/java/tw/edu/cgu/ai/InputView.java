@@ -2,7 +2,7 @@
  *  at the Georgia Institute of Technology School of Interactive Computing
  */
 
-package tw.edu.cgu.ai.zenbo;
+package tw.edu.cgu.ai;
 
 import android.content.Context;
 import android.graphics.Bitmap;

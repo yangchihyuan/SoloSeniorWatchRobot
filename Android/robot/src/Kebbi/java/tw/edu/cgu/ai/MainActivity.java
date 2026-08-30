@@ -150,6 +150,7 @@ public class MainActivity extends Activity implements CameraService.ServiceCallb
 
     }
 
+    //CameraService will call this function
     @Override
     public void launchPlayer(Integer dance_type) {
         Intent intent = new Intent();
