@@ -1,6 +1,6 @@
 #!/bin/bash
 #Author: Chih-Yuan Yang
-#2026 Aug 22
+#2026 Aug 30
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
@@ -29,7 +29,7 @@ elif [[ "$#" -eq 0 ]]; then # Use -eq for numerical comparison for $#
 elif [[ "$1" = "debug" ]]; then
     Setting_file="$2"    
     # Ensure arguments are correctly passed to gdb via --args
-    gdb --args build/RobotNurseHelper --SettingFile "$Setting_file"
+    gdb --args build/SoloSeniorWatchRobot --SettingFile "$Setting_file"
 else 
     Setting_file="$1"
 fi
@@ -61,7 +61,10 @@ if [[ "$Machine" = "AGXOrin" ]]; then
     fi
 fi
 
-echo "Starting RobotNurseHelper with Setting file: $Setting_file"
-build/RobotNurseHelper --SettingFile "$Setting_file" 2>&1 | tee "$FILENAME" # Log output to a file with timestamp
+echo "Starting SoloSeniorWatchRobot with Setting file: $Setting_file"
+if [[ ! -d "./logs" ]]; then
+    mkdir -p "./logs"
+fi
+build/SoloSeniorWatchRobot --SettingFile "$Setting_file" 2>&1 | tee "$FILENAME" # Log output to a file with timestamp
 
 exit 0 # Indicate successful execution
