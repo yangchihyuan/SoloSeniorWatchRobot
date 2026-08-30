@@ -70,7 +70,7 @@ import android.media.MediaRecorder;
 import android.util.Log;
 import android.widget.Button;
 
-import tw.edu.cgu.ai.env.Logger; //Where do I use the Logger?
+import tw.edu.cgu.ai.env.Logger;
 
 public class MainActivity extends Activity {
     private static final int PERMISSIONS_REQUEST = 1;
@@ -193,6 +193,18 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(final Bundle savedInstanceState) {
+        // Catch the setScreenAvoidRMode NoSuchMethodError from Zenbo SDK
+        final Thread.UncaughtExceptionHandler defaultHandler = Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+            @Override
+            public void uncaughtException(Thread t, Throwable e) {
+                if (e instanceof NoSuchMethodError && e.getMessage() != null && e.getMessage().contains("setScreenAvoidRMode")) {
+                    Log.e("ZenboSDKFix", "Caught and ignored expected NoSuchMethodError: " + e.getMessage());
+                } else if (defaultHandler != null) {
+                    defaultHandler.uncaughtException(t, e);
+                }
+            }
+        });
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.main_activity);
@@ -205,7 +217,9 @@ public class MainActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
         robotCallback = new ZenboCallback();
+        robotCallback.socketManager = socketManager;
         mRobotAPI = new RobotAPI(this, robotCallback);
+        mRobotAPI.robot.registerListenCallback(robotCallback);
         socketManager.mRobotAPI = mRobotAPI;
         socketManager.startThreads();
         mediaPlayer = MediaPlayer.create(this, R.raw.zenbo_love_you_too_manderin); // R.raw.your_mp3_filename
@@ -307,6 +321,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        socketManager.startThreads();
         startThreads();
 
         View decorView = getWindow().getDecorView();

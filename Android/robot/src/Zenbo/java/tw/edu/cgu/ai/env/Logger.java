@@ -13,7 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 ==============================================================================*/
 
-package tw.edu.cgu.ai.zenbo.env;
+package tw.edu.cgu.ai.env;
 
 import android.util.Log;
 

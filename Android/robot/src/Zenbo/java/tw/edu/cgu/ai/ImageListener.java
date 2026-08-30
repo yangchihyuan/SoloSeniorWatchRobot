@@ -17,7 +17,7 @@ limitations under the License.
  *  at the Georgia Institute of Technology School of Interactive Computing
  */
 
-package tw.edu.cgu.ai.zenbo;
+package tw.edu.cgu.ai;
 
 import android.graphics.Bitmap;
 import android.graphics.Bitmap.Config;
@@ -26,12 +26,12 @@ import android.media.Image.Plane;
 import android.media.ImageReader;
 import android.media.ImageReader.OnImageAvailableListener;
 
-import tw.edu.cgu.ai.zenbo.env.ImageUtils;
-import tw.edu.cgu.ai.zenbo.env.Logger;
+import tw.edu.cgu.ai.env.ImageUtils;
+import tw.edu.cgu.ai.env.Logger;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
-import RobotCommandProtobuf.RobotCommandOuterClass;
+import tw.edu.cgu.ai.RobotCommandOuterClass;
 
 import java.io.ByteArrayOutputStream;
 

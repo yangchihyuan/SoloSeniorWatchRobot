@@ -7,7 +7,7 @@
 
 read -p "Is your RAM + swap greater than 32G? [Y/n]" EnoughRAM
 if ! [[ "$EnoughRAM" == "Y" || "$EnoughRAM" == "y" ]]; then
-  echo "You need 32G to compile the RobotNurseHelper program. If you don't have enough RAM, enlarge your swap."
+  echo "You need 32G to compile the SoloSeniorWatchRobot program. If you don't have enough RAM, enlarge your swap."
   exit
 fi
 
@@ -107,10 +107,10 @@ sudo apt -y install zip
 sudo apt -y install libgtk2.0-dev 
 
 #create an empty workding directory
-if [ -d "RobotNurseHelper_build" ]; then
-    rm -rf RobotNurseHelper_build
+if [ -d "SoloSeniorWatchRobot_build" ]; then
+    rm -rf SoloSeniorWatchRobot_build
 fi
-mkdir RobotNurseHelper_build
+mkdir SoloSeniorWatchRobot_build
 
 #sudo apt -y install cmake
 
@@ -121,7 +121,7 @@ elif [ "$machine" = "AGXOrin" ]; then
   #Snap's cmake does not work on AGX Orin because the the AGX Orin Ubuntu does not a complete SELinux system.
   #The SELinux service is initialzed, but required componenets are missing, which leads to a failure of snap's sandbox.
   #sudo snap install cmake --classic   # version 4.2.2 will be installed
-  cd ~/RobotNurseHelper_build
+  cd ~/SoloSeniorWatchRobot_build
   # Download the official Linux installer script
   wget https://github.com/Kitware/CMake/releases/download/v3.31.3/cmake-3.31.3-linux-aarch64.sh
 
@@ -134,7 +134,7 @@ fi
 
 #install OpenCV 4.11, which is required by MediaPipe
 #install OpenCV 4.11 first, because it requires to key in sudo password again
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 
 wget -O opencv4.11.zip https://github.com/opencv/opencv/archive/refs/tags/4.11.0.zip
 wget -O opencv_contrib4.11.zip https://github.com/opencv/opencv_contrib/archive/refs/tags/4.11.0.zip
@@ -155,10 +155,10 @@ sudo ldconfig
 
 
 #intall protobuf 3.19.1
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 wget -O protobuf-all-3.19.1.zip https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-all-3.19.1.zip
 unzip protobuf-all-3.19.1.zip
-cd ~/RobotNurseHelper_build/protobuf-3.19.1
+cd ~/SoloSeniorWatchRobot_build/protobuf-3.19.1
 ./configure
 #if I use "make -j $(nproc)", there is a peak of memory usage, which exceeds the RAM+SWAP size on some laptops.
 make -j 10    #prevent memory peak usage
@@ -179,15 +179,15 @@ git checkout v0.10.22
 
 #download our files
 cd 
-if [ -d "RobotNurseHelper" ]; then
-    rm -rf RobotNurseHelper
+if [ -d "SoloSeniorWatchRobot" ]; then
+    rm -rf SoloSeniorWatchRobot
 fi
-git clone https://github.com/yangchihyuan/RobotNurseHelper.git
+git clone https://github.com/yangchihyuan/SoloSeniorWatchRobot.git
 #copy our code to the mediapipe folder
-cp -r ~/RobotNurseHelper/Server/mediapipe_addition/* ~/mediapipe/
+cp -r ~/SoloSeniorWatchRobot/Server/mediapipe_addition/* ~/mediapipe/
 
 #Install bazelisk
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 #this command only works for amd64 architecture
 if [ "$machine" = "PC" ]; then
   wget -O bazelisk-amd64.deb https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-amd64.deb
@@ -238,7 +238,7 @@ sudo apt install -y gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer
 
 #PortAudio
 #We use it to play voice on the server transmitted from the Android app and received from the robot's microphone. There is no package made for the Ubuntu system, and we need to compile it from downloaded source files, which are available on its GitHub page
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 if [ -d "portaudio" ]; then
     rm -rf portaudio
 fi
@@ -247,7 +247,7 @@ git clone https://github.com/PortAudio/portaudio.git
 #There is an instruction page teaching how to compile and install PortAudio (Link) However, as the page claims it is not reviewed, we modified its commands to
 
 sudo apt-get -y install libasound2-dev
-cd ~/RobotNurseHelper_build/portaudio
+cd ~/SoloSeniorWatchRobot_build/portaudio
 ./configure
 make -j $(nproc)
 sudo make install
@@ -259,12 +259,12 @@ sudo ldconfig
 #It is a voice-to-text library and we utilize it on our server-side program to quickly generate sentences spoken by an operator, which will be sent to the robot to speak out. There is no package make for the Ubuntu system, and we need to compile it from it source file downloaded from its GitHub repository
 
 #Debug info 25/3/18,whisper.cpp v1.7.5 changes its install commands
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 if [ -d "whisper.cpp" ]; then
     rm -rf whisper.cpp
 fi
 git clone https://github.com/ggerganov/whisper.cpp.git
-cd ~/RobotNurseHelper_build/whisper.cpp
+cd ~/SoloSeniorWatchRobot_build/whisper.cpp
 git checkout v1.7.5
 if ((VRAMSize==0)); then
   bash ./models/download-ggml-model.sh tiny
@@ -289,7 +289,7 @@ else
 fi
 
 #onnx
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 if [ "$machine" = "PC" ]; then
   wget -O onnxruntime-linux-x64-gpu-1.22.0.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-gpu-1.22.0.tgz
   tar -xvzf onnxruntime-linux-x64-gpu-1.22.0.tgz
@@ -299,7 +299,7 @@ elif [ "$machine" = "AGXOrin" ]; then
 fi
 
 #silero-v
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 git clone https://github.com/snakers4/silero-vad.git
 
 #The EmotiEffLib uses a 3rd party library 3rdparty/xtl/CMakeLists.txt, which requires CMake 3.29 or above.
@@ -317,35 +317,35 @@ cmake --version   #It should be 4.1.2
 sudo apt install libopenblas-dev
 
 #EmotiEffLib
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 git clone https://github.com/sb-ai-lab/EmotiEffLib.git
 cd EmotiEffLib
 git submodule update --init --recursive
 cd emotieffcpplib
 mkdir build && cd build
 #I am not sure if this command works. Check it later.
-#Their CMakeLists.txt file needs /home/chihyuan/RobotNurseHelper_build/onnxruntime-linux-x64-gpu-1.22.0/lib64, but there is no lib64 folder in onnxruntime-linux-x64-gpu-1.22.0. There is only a lib folder.
+#Their CMakeLists.txt file needs /home/chihyuan/SoloSeniorWatchRobot_build/onnxruntime-linux-x64-gpu-1.22.0/lib64, but there is no lib64 folder in onnxruntime-linux-x64-gpu-1.22.0. There is only a lib folder.
 #So, I create a symbolic link lib64 to lib
 if [ "$machine" = "PC" ]; then
-  cd ~/RobotNurseHelper_build/onnxruntime-linux-x64-gpu-1.22.0
+  cd ~/SoloSeniorWatchRobot_build/onnxruntime-linux-x64-gpu-1.22.0
   ln -s lib lib64
-  cd ~/RobotNurseHelper_build/EmotiEffLib/emotieffcpplib/build
-  cmake .. -DWITH_ONNX=~/RobotNurseHelper_build/onnxruntime-linux-x64-gpu-1.22.0 -DBUILD_SHARED_LIBS=ON
+  cd ~/SoloSeniorWatchRobot_build/EmotiEffLib/emotieffcpplib/build
+  cmake .. -DWITH_ONNX=~/SoloSeniorWatchRobot_build/onnxruntime-linux-x64-gpu-1.22.0 -DBUILD_SHARED_LIBS=ON
   make -j$(nproc)
-  #The .so files are in ~/RobotNurseHelper_build/EmotiEffLib/emotieffcpplib/build/lib
+  #The .so files are in ~/SoloSeniorWatchRobot_build/EmotiEffLib/emotieffcpplib/build/lib
 elif [ "$machine" = "AGXOrin" ]; then
-  cd ~/RobotNurseHelper_build/onnxruntime-linux-aarch64-1.22.0
+  cd ~/SoloSeniorWatchRobot_build/onnxruntime-linux-aarch64-1.22.0
   ln -s lib lib64
-  cd ~/RobotNurseHelper_build/EmotiEffLib/emotieffcpplib/build
-  cmake .. -DWITH_ONNX=~/RobotNurseHelper_build/onnxruntime-linux-aarch64-1.22.0 -DBUILD_SHARED_LIBS=ON
+  cd ~/SoloSeniorWatchRobot_build/EmotiEffLib/emotieffcpplib/build
+  cmake .. -DWITH_ONNX=~/SoloSeniorWatchRobot_build/onnxruntime-linux-aarch64-1.22.0 -DBUILD_SHARED_LIBS=ON
   make -j$(nproc)
-  #The .so files are in ~/RobotNurseHelper_build/EmotiEffLib/emotieffcpplib/build/lib
+  #The .so files are in ~/SoloSeniorWatchRobot_build/EmotiEffLib/emotieffcpplib/build/lib
 fi
 
 #ollama
 if [ "$machine" = "PC" ]; then
   sudo snap install curl
-  cd ~/RobotNurseHelper_build/
+  cd ~/SoloSeniorWatchRobot_build/
   #This command seems unnecenssary is from https://ollama.com/docs/installation
   curl.snap-acked        #ollama changed its installation script. There is a text explanation in the script. It only accepts Snap-curl and we need to use this command first to prevent a warning message
   curl -fsSL https://ollama.com/install.sh | sh
@@ -363,9 +363,9 @@ fi
 
 
 #ollama-hpp
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 git clone https://github.com/jmont-dev/ollama-hpp.git
-cd ~/RobotNurseHelper_build/ollama-hpp
+cd ~/SoloSeniorWatchRobot_build/ollama-hpp
 git checkout v0.9.5
 #The ollama.hpp vesion 0.9.7 has a conclict with GCC 13 std::hash (GCC is the default compiler package on Ubuntu 24.04).
 #The old verion 0.9.5 does not have this problem because it does not use std::hash. So I use the old version 0.9.5 to prevent the compilation error.
@@ -377,16 +377,16 @@ sed -i 's|this->cli->Post("/api/chat", request_string, "application/json", strea
 #dlib library for face recognition
 #The precompiled libdlib-dev does not work. It enables the DLIB_NO_GUI_SUPPORT
 #sudo apt -y install libdlib-dev       #Ubuntu 24.04 has dlib version 19.24.0-1 available in its repository
-cd ~/RobotNurseHelper_build/
+#cd ~/SoloSeniorWatchRobot_build/
 #This command will go wrong in the future because new versions will changes its download URL
 #curl https://dlib.net/files/dlib-20.0.tar.bz2 --output dlib-20.0.tar.bz2
-wget -O dlib-20.0.tar.bz2 https://dlib.net/files/dlib-20.0.tar.bz2
-tar -xjvf dlib-20.0.tar.bz2
+#wget -O dlib-20.0.tar.bz2 https://dlib.net/files/dlib-20.0.tar.bz2
+#tar -xjvf dlib-20.0.tar.bz2
 
 #InspireFace (The library has not been tested on AGX Orin, but it should work because it is based on OpenCV and ONNX Runtime, which are both tested on AGX Orin.
 #I need to test it on AGX Orin later. If there is a problem, I will try to fix it and update the code.
 #if [ "$machine" = "PC" ]; then
-  cd ~/RobotNurseHelper_build/
+  cd ~/SoloSeniorWatchRobot_build/
   git clone https://github.com/HyperInspire/InspireFace.git
   checkout v1.2.3
   # Must enter this directory
@@ -417,13 +417,13 @@ tar -xjvf dlib-20.0.tar.bz2
 #fi
 
 #cpp-httplib
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 git clone https://github.com/yhirose/cpp-httplib.git
 cd cpp-httplib
 git checkout v0.34.0
 
 #Build our own program
-cd ~/RobotNurseHelper/Server
+cd ~/SoloSeniorWatchRobot/Server
 ./build_project.sh $RobotModel
 #copy the required mediapipe files to Server
 cp -r ~/mediapipe/bazel-bin/mediapipe/examples/desktop/libmp/libmp_gpu.so.runfiles/mediapipe/mediapipe .
@@ -438,17 +438,17 @@ rm -rf temp
 
 #copy the file to prevent Nvidia GPU from being unavailable after laptop suspends
 if [ "$machine" = "PC" ] && [[ "$GPUModel" == "3050laptop" || "$GPUModel" == "4070laptop" ]]; then
-  sudo cp ~/RobotNurseHelper/Server/nvidia-power-management.conf /etc/modprobe.d/
+  sudo cp ~/SoloSeniorWatchRobot/Server/nvidia-power-management.conf /etc/modprobe.d/
   sudo update-initramfs -u
 fi
 
 #Dowload media files from internet
-cd ~/RobotNurseHelper_build
-#wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1n5GuS6kqABCq5hGLOToFV_11V9mmEHZR' -O RobotNurseHelper.zip
+cd ~/SoloSeniorWatchRobot_build
+#wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1n5GuS6kqABCq5hGLOToFV_11V9mmEHZR' -O SoloSeniorWatchRobot.zip
 #for large files (>100MB), Google Drive will block the download and ask for a confirmation. Press F12 when you use your brower to download the file. In the Network tab, your will see the authentic url.
-wget --no-check-certificate 'https://drive.usercontent.google.com/download?id=1zVMH3INErwSuXJ1TF2gfPe2O0HVLu381&export=download&authuser=0&confirm=t&uuid=d4298704-bde8-444d-9ca4-0e36402c1e1f&at=APcXIO3sT6c9dZSljEclJVnWV_OW%3A1770877164167' -O RobotNurseHelper_MediaFiles.zip
-unzip RobotNurseHelper_MediaFiles.zip -d RobotNurseHelper_MediaFiles
-cp -r RobotNurseHelper_MediaFiles/RobotNurseHelper/* ~/RobotNurseHelper
+wget --no-check-certificate 'https://drive.usercontent.google.com/download?id=1zVMH3INErwSuXJ1TF2gfPe2O0HVLu381&export=download&authuser=0&confirm=t&uuid=d4298704-bde8-444d-9ca4-0e36402c1e1f&at=APcXIO3sT6c9dZSljEclJVnWV_OW%3A1770877164167' -O SoloSeniorWatchRobot_MediaFiles.zip
+unzip SoloSeniorWatchRobot_MediaFiles.zip -d SoloSeniorWatchRobot_MediaFiles
+cp -r SoloSeniorWatchRobot_MediaFiles/SoloSeniorWatchRobot/* ~/SoloSeniorWatchRobot
 
 
 #for play video and audio in Qt Multimedia
@@ -461,10 +461,10 @@ fi
 
 #install the desktop file to let users launch the program by clicking the icon
 #copy the icon file to /usr/share/pixmaps, which is a standard directory for storing icons in Linux systems. This allows the system to find and display the icon properly when you launch the program from the application menu.
-sudo cp ~/RobotNurseHelper/Server/ZenboNurse.png /usr/share/pixmaps/ZenboNurse.png
+sudo cp ~/SoloSeniorWatchRobot/Server/ZenboNurse.png /usr/share/pixmaps/ZenboNurse.png
 
-cd ~/RobotNurseHelper/Server
-mkdir -p ~/.local/share/applications/ && cp RobotNurseHelper.desktop ~/.local/share/applications/
+cd ~/SoloSeniorWatchRobot/Server
+mkdir -p ~/.local/share/applications/ && cp SoloSeniorWatchRobot.desktop ~/.local/share/applications/
 
 #update desktop database
 update-desktop-database ~/.local/share/applications/
@@ -473,7 +473,7 @@ update-desktop-database ~/.local/share/applications/
 
 #Yolov11-pose needs CuDNN to run its onnx file. It is only need to install in PC. The AGX Orin has its own GPU acceleration library, which is compatible with CuDNN, so we don't need to install CuDNN on AGX Orin.
 if [ "$machine" = "PC" ]; then
-  cd ~/RobotNurseHelper_build
+  cd ~/SoloSeniorWatchRobot_build
   # Download Ubuntu 24.04 spcific keyring
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
   # Install keyring
@@ -492,7 +492,7 @@ fi
 #The library is required by AnythingLLM, but missing in Ubuntu 22.04 and 24.04.
 sudo apt install libfuse2
 
-cd ~/RobotNurseHelper_build
+cd ~/SoloSeniorWatchRobot_build
 # Download the installer script to wherever you want to run it from
 curl -fsSL https://cdn.anythingllm.com/latest/installer.sh -o installer.sh
  

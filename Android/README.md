@@ -1,6 +1,6 @@
 This folder contains the source files to build a robot-side app for the Kebbi Air-S robot.
 
-![Kebbi](KebbiAirS.png)
+![Kebbi](ReadMe_Photos/KebbiAirS.png)
 
 # Developing Tool
 Android Studio Quail 1 | 2026.1.1 Patch 2
@@ -70,27 +70,27 @@ There is another way to install our app through an APK file. From the Android St
 
 # Kebbi SDK
 
-<img src="Kebbi_SDK.jpg" alt="Kebbi SDK" height="200"/>
+<img src="ReadMe_Photos/Kebbi_SDK.jpg" alt="Kebbi SDK" height="200"/>
 
 Kebbi's SDK is online available at Nuwa robotics' website [Link](https://developer-docs.nuwarobotics.com/sdk/javadoc/reference/com/nuwarobotics/service/agent/NuwaRobotAPI.html). We use the version 2.1.0.08.
 
 # Nuwa Robotics Docuemnts
 
-<img src="NUWA_Document.jpg" alt="Nuwa Document" height="200"/>
+<img src="ReadMe_Photos/NUWA_Document.jpg" alt="Nuwa Document" height="200"/>
 
 There is a GitHub web page provided by the Nuwa robotics [Link](https://github.com/nuwarobotics/NuwaDocumentMD), which can be viewed as an entrance of associated documents. However, this page is not well maintained. Some links do not work.
 
 # Kebbi's motion preview
 
-<img src="Kebbi_motion.jpg" alt="Kebbi Motions Preview" height="200"/>
+<img src="ReadMe_Photos/Kebbi_motion.jpg" alt="Kebbi Motions Preview" height="200"/>
 
 There are 223 built-in motions (Kebbi's body actions) available. To quickly go through all of them, Nuwa robotics provides a page showing their GIF animations [Link](https://developer-docs.nuwarobotics.com/sdk/kebbi_motion_preview/showPic.html).
 
 If you want to view those motions in 3D, Nuwa robotics provides another page for this purpose.
 
-<img src="Kebbi_motion_3D_list.jpg" alt="Kebbi motion 3D list" height="200"/>
+<img src="ReadMe_Photos/Kebbi_motion_3D_list.jpg" alt="Kebbi motion 3D list" height="200"/>
 
 However, you need to have a Nuwa developer account and first and log in their developer website and then you can browse those motions.
 [Link](https://dss.nuwarobotics.com/documents/listMotionFile) In addition, the only language supported by this page is Chinese, which is inconvenient for non-Chinese developers.
 
-<img src="Kebbi_motion_3D.jpg" alt="Kebbi motion 3D" height="200"/>
+<img src="ReadMe_Photos/Kebbi_motion_3D.jpg" alt="Kebbi motion 3D" height="200"/>

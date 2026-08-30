@@ -1,5 +1,5 @@
 {
-    "cmake.sourceDirectory": "/home/chihyuan/RobotNurseHelper/Server",
+    "cmake.sourceDirectory": "/home/chihyuan/SoloSeniorWatchRobot/Server",
     "files.associations": {
         "array": "cpp",
         "atomic": "cpp",

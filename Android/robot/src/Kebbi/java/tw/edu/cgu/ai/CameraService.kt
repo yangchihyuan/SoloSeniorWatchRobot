@@ -52,7 +52,7 @@ class CameraService : LifecycleService() {
 
     private var callback: ServiceCallback? = null
     interface ServiceCallback {
-        fun launchPlayer(dancing : Int?)
+        fun launchPlayer(dancing : Int?)            //the launchPlayer function is defined in MainActivity.java
     }
     inner class LocalBinder : Binder() {
         fun getService(): CameraService = this@CameraService
