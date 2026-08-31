@@ -28,6 +28,7 @@
 #include <memory>
 #include "../VideoWindow.hpp"
 #include "Setting.hpp"
+#include "VideoAudioBuffer.hpp"
 
 using namespace std;
 
@@ -98,6 +99,8 @@ protected:
     void rotateAndTakePhoto(int targetAngle, const QString &prefix);
 
     Logger mlogger;
+
+    VideoAudioBuffer mVABuffer;
 
 signals:
     void newMessage(QString); // where is the connect for this signal?

@@ -1,7 +1,7 @@
 {
-    "workbench.colorTheme": "Light Modern",
+    "workbench.colorTheme": "Light+",
     "workbench.preferredDarkColorTheme": "Light+",
-    "cmake.configureOnOpen": false
+    "cmake.configureOnOpen": false,
     "[cpp]": {
         "editor.defaultFormatter": "ms-vscode.cpptools",
         "editor.formatOnSave": true

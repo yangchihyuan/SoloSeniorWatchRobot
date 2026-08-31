@@ -210,6 +210,9 @@ void ThreadProcessImage::run()
 
             if (bCorrectlyDecoded)
             {
+                //Copy to VABuffer
+                mpVideoAudioBuffer->AddAFrame(inputImage);
+
                 if (iFrameCount == 0)
                 {
                     inputImage.copyTo(outFrame); // To let outFrame has buffer
@@ -225,6 +228,8 @@ void ThreadProcessImage::run()
                                                   // output video. So I create tempFrame for this purpose. I will not
                                                   // use the content of tempFrame outside this function.
                 }
+
+                // Save images to a queue for ASD.
 
                 bool bSaveProcessResult = false; // default false, this variable is
                                                  // controlled by the iFrameCount

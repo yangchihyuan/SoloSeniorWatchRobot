@@ -6,11 +6,11 @@
     "bSaveImages": false,
     "iImageSaveIntervalMillisecond": 5000,
     "bFacialExpressionRecognition": false,
-    "bHumanPoseEstimation": true,
+    "bHumanPoseEstimation": false,
     "PoseEstimationModel": "MediaPipe_Pose",        //Yolo11n_Pose, MediaPipe_Pose
     "bHandLandmarkDetection": false,
     "bUseDlibForFaceRecognition": false,            //I currently is not using dlib. It consumes 16G+ RAM.
-    "bFaceDetection": true,
+    "bFaceDetection": false,
     "FaceDetectionModel": "InspireFace",             //MediaPipe_Face, InspireFace
     "bUseVisualCompass": false,
     "WhisperModel": "$HOME/RobotNurseHelper_build/whisper.cpp/models/ggml-large-v3-turbo.bin",

@@ -18,6 +18,7 @@
 #include <opencv2/opencv.hpp>
 
 #include "Setting.hpp"
+#include "VideoAudioBuffer.hpp"
 
 struct DataFrame;
 
@@ -155,6 +156,7 @@ public:
     int GetPatientAge();
     //    void SetSettingFile(const QString &filePath);
     Setting *mpsetting = nullptr;
+    VideoAudioBuffer *mpVideoAudioBuffer = nullptr;
 
 protected:
     void run();

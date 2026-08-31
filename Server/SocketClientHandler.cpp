@@ -12,6 +12,7 @@ SocketClientHandler::SocketClientHandler(QTcpSocket* socket, QObject *parent)
     connect(m_socket, &QTcpSocket::disconnected, this, &SocketClientHandler::onDisconnected);
 }
 
+//This is called when new image data is received
 void SocketClientHandler::onReadyRead() {
     QByteArray data = m_socket->readAll();
     socketBufferParser.add_data(data.data(), data.size());

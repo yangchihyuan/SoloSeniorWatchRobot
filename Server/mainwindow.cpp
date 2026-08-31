@@ -27,9 +27,10 @@
 #include <QTimer>
 #include <opencv2/core.hpp>
 #include <opencv2/highgui.hpp>
+#include "VideoAudioBuffer.hpp"
 
 extern std::mutex gMutex_audio_buffer;
-extern std::queue<short> AudioBuffer;
+extern std::queue<short> AudioBuffer; // wait to remove
 extern std::condition_variable cond_var_audio;
 extern int PortAudio_stop_and_terminate();
 extern bool gbPlayAudio;
@@ -125,6 +126,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
 
     thread_process_image.pSendMessageManager = &sendMessageManager;
+    thread_process_image.mpVideoAudioBuffer = &mVABuffer;
 
     thread_receive_message.pSendMessageManager = &sendMessageManager;
     thread_receive_message.mpThreadStateControl = &thread_state_control;
@@ -305,33 +307,9 @@ MainWindow::~MainWindow()
 }
 
 /*
-void MainWindow::setWhisperModelFile( QString filePath)
-{
-    thread_whisper.model_file_path = filePath;
-}
-
 void MainWindow::setState(int N)
 {
     thread_state_control.SetIntialStateIndex(N);
-}
-
-void MainWindow::setImageSaveDirectory( QString ImageSaveDirectory)
-{
-    thread_process_image.ImageSaveDirectory = ImageSaveDirectory.toStdString();
-}
-
-void MainWindow::setDefaultSaveImage(bool bDefaultSaveImage)
-{
-    if( bDefaultSaveImage )
-    {
-        thread_process_image.bSaveTransmittedImage = true;
-        ui->checkBox_SaveImages->setChecked(true);
-    }
-    else
-    {
-        thread_process_image.bSaveTransmittedImage = false;
-        ui->checkBox_SaveImages->setChecked(false);
-    }
 }
 */
 
@@ -341,7 +319,7 @@ void MainWindow::setLanguage(QString Language)
     if (Language == "Chinese")
     {
         thread_whisper.strLanguage =
-            "zh"; // set language to Chinese (可維持此行不變)
+            "zh"; // set language to Chinese
         SentenceFileName = "Sentence_Chinese.txt";
     }
     else if (Language == "English")
@@ -412,15 +390,11 @@ void MainWindow::newConnection_receive_image()
     while (m_server_receive_image->hasPendingConnections())
     {
         QTcpSocket *socket = m_server_receive_image->nextPendingConnection();
-
-        //        SocketClientHandler_Image* handler = new
-        //        SocketClientHandler_Image(socket, this);
         SocketClientHandler *handler = new SocketClientHandler(socket, this);
         Handler_set.insert(handler);
+        //When new data is received, add it to the queue of thread_process_image
         handler->socketBufferParser.pDataFrames_queue =
             &thread_process_image.DataFrames_queue;
-        //        handler->socketBufferParser_Image.thread_process_image =
-        //        &thread_process_image;
         qDebug() << "New connection 8895 from:"
                  << socket->peerAddress().toString();
     }
@@ -497,6 +471,9 @@ void MainWindow::readSocket3()
     qint64 length = socketStream.readRawData(buffer_head, byteAvailable);
     short *pShort = (short *)buffer_head;
     long long sampleCount = length / 2;
+
+    // push read buffer to mVABuffer
+    mVABuffer.AddAudio(pShort, sampleCount);
 
     // Disable here if I don't want to play audio on the server side.
     if (msetting.bServerPlaysRobotReceivedAudio)

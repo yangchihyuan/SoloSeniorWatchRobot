@@ -103,6 +103,7 @@ set(SOURCES AnythingLLM.cpp
             ThreadWhisper.cpp
             ThreadLLM.cpp
             ThreadReceiveMessage.cpp            
+            VideoAudioBuffer.cpp
             VideoWindow.cpp
             Yolo11Pose.cpp 
             YoloDetector.cpp
