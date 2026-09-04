@@ -106,6 +106,7 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     implementation 'androidx.appcompat:appcompat:1.7.1'
     KebbiImplementation (name:'NuwaSDK-2021-07-08_1058_2.1.0.08_e21fe7', ext:'aar')
+    ZenboImplementation (name:'ZenboSDK', ext:'jar')
     ZenboJrIIImplementation (name:'ZenboJuniorSDK', ext:'jar')
     implementation 'com.google.protobuf:protobuf-javalite:3.19.1'
     implementation(platform("org.jetbrains.kotlin:kotlin-bom:1.8.0"))
