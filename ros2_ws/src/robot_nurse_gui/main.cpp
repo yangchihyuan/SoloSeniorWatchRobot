@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QCommandLineParser>
 #include <QDir>
+#include <QFileInfo>
 #include <QTimer>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <rclcpp/rclcpp.hpp>
@@ -36,13 +37,20 @@ int main(int argc, char *argv[])
 
     parser.process(app);
 
-    QString strSetting;
+    QString strSetting = "json/Setting.json";
     if (parser.isSet(SettingFileOption)) {
         strSetting = parser.value(SettingFileOption);
         qDebug() << "Setting file is:" << strSetting;
     }
 
-    MainWindow w;
+    if (!QFileInfo::exists(strSetting)) {
+        qCritical() << "Setting file does not exist:" << strSetting
+                    << "(working directory:" << QDir::currentPath() << ")";
+        rclcpp::shutdown();
+        return EXIT_FAILURE;
+    }
+
+    MainWindow w(rosNode);
     w.setSettingFile(strSetting);
     w.startThreads();
 

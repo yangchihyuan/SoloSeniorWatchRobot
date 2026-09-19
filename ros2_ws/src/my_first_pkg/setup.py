@@ -36,6 +36,7 @@ setup(
             # 新增這兩行
             'my_server = my_first_pkg.my_service_server:main',
             'my_client = my_first_pkg.my_service_client:main',
+            'android_av_bridge = my_first_pkg.android_av_bridge:main',
         ],
     },
 )

@@ -7,6 +7,8 @@ project(robot_nurse_gui)
 find_package(ament_cmake REQUIRED)
 find_package(ament_index_cpp REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 # Prefer a locally installed JSON package.  FetchContent remains a fallback
 # for a clean machine, while offline ROS builds can set NLOHMANN_JSON_DIR.
@@ -261,7 +263,8 @@ target_include_directories(SoloSeniorWatchRobot PRIVATE
 target_link_libraries(SoloSeniorWatchRobot LIBWHISPER
     Qt::Core Qt::Widgets Qt::Network
     Qt::Multimedia Qt::MultimediaWidgets ${OpenCV_LIBS} portaudio LIBONNX nlohmann_json::nlohmann_json)
-ament_target_dependencies(SoloSeniorWatchRobot ament_index_cpp rclcpp)
+ament_target_dependencies(SoloSeniorWatchRobot
+  ament_index_cpp rclcpp sensor_msgs std_msgs)
 
 #set the compile definition
 if(ROBOT_MODEL STREQUAL "Kebbi")

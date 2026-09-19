@@ -26,9 +26,14 @@
 #include "SendMessageManager.hpp"
 #include "SocketClientHandler.hpp"
 #include <memory>
+#include <cstdint>
+#include <vector>
 #include "VideoWindow.hpp"
 #include "Setting.hpp"
 #include "VideoAudioBuffer.hpp"
+#include <rclcpp/rclcpp.hpp>
+#include <sensor_msgs/msg/compressed_image.hpp>
+#include <std_msgs/msg/u_int8_multi_array.hpp>
 
 using namespace std;
 
@@ -44,7 +49,8 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(const rclcpp::Node::SharedPtr &rosNode,
+                        QWidget *parent = nullptr);
     ~MainWindow();
     void setLanguage(QString Language);
     void setSettingFile(const QString &filePath);
@@ -60,18 +66,18 @@ protected:
     Ui::MainWindow *ui;
     QTimer *timer;
 
-    QTcpServer *m_server_receive_image;
+    QTcpServer *m_server_receive_image = nullptr;
     QSet<QTcpSocket *> connection_set;
     ThreadProcessImage thread_process_image;
 
-    QTcpServer *m_server_send_command;
+    QTcpServer *m_server_send_command = nullptr;
     QSet<QTcpSocket *> connection_set2; // for send back command
 
-    QTcpServer *m_server_receive_audio;
+    QTcpServer *m_server_receive_audio = nullptr;
     QSet<QTcpSocket *> connection_set3; // for receive audio
     ThreadProcessAudio thread_process_audio;
 
-    QTcpServer *m_server_receive_message;
+    QTcpServer *m_server_receive_message = nullptr;
     QSet<QTcpSocket *> connection_set4; // for Tablet
     SocketBufferParser socketHandler4;
     ThreadReceiveMessage thread_receive_message;
@@ -101,6 +107,15 @@ protected:
     Logger mlogger;
 
     VideoAudioBuffer mVABuffer;
+
+    rclcpp::Node::SharedPtr rosNode_;
+    rclcpp::Subscription<sensor_msgs::msg::CompressedImage>::SharedPtr imageSubscription_;
+    rclcpp::Subscription<std_msgs::msg::UInt8MultiArray>::SharedPtr audioSubscription_;
+    std::vector<std::uint8_t> rosAudioRemainder_;
+
+    void onRosImage(const sensor_msgs::msg::CompressedImage::SharedPtr message);
+    void onRosAudio(const std_msgs::msg::UInt8MultiArray::SharedPtr message);
+    void processAudioPcm16(const std::uint8_t *data, std::size_t byteCount);
 
 signals:
     void newMessage(QString); // where is the connect for this signal?

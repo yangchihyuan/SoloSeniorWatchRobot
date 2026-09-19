@@ -1,18 +1,24 @@
 import socket
 import struct
 
-import cv2
-import numpy as np
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage
 from std_msgs.msg import UInt8MultiArray
+from .robot_command_proto import ProtoDecodeError, decode_robot_to_server_message
+
+
+FRAME_HEAD = b'BeginOfADataFrame'
+FRAME_TAIL = b'EndOfADataFrame'
+MAX_FRAME_SIZE = 10 * 1024 * 1024
 
 class AndroidAVBridge(Node):
-    """Receive length-prefixed JPEG and audio frames from an Android TCP client.
+    """Bridge the unchanged Android TCP protocol to ROS 2 topics.
 
-    Wire format for each stream:
-    ``[4-byte unsigned big-endian payload length][payload bytes]``.
+    Android's image stream is delimiter-framed and contains a little-endian
+    length followed by a RobotToServerMessage protobuf.  Its audio stream is
+    raw PCM16 and has no protobuf or frame header.
     """
 
     def __init__(self):
@@ -22,15 +28,16 @@ class AndroidAVBridge(Node):
         self.aud_pub = self.create_publisher(
             UInt8MultiArray, '/android/audio_buffer', 10)
 
-        self.vid_listener = self._create_listener(5000)
-        self.aud_listener = self._create_listener(5001)
+        # Keep the ports used by the existing Android app unchanged.
+        self.vid_listener = self._create_listener(8895)
+        self.aud_listener = self._create_listener(8897)
         self.vid_conn = None
         self.aud_conn = None
         self.vid_buffer = bytearray()
         self.aud_buffer = bytearray()
 
         self.get_logger().info(
-            'TCP servers started: video port 5000, audio port 5001')
+            'TCP servers started: Android image port 8895, audio port 8897')
         self.timer = self.create_timer(0.01, self.receive_data)
 
     @staticmethod
@@ -51,15 +58,15 @@ class AndroidAVBridge(Node):
         except BlockingIOError:
             return None
 
-    def _read_frames(self, connection, buffer, name):
-        """Append available TCP bytes and return every complete framed payload."""
+    def _read_available(self, connection, buffer, name):
+        """Append all currently available bytes to a stream buffer."""
         try:
             while True:
                 chunk = connection.recv(65536)
                 if not chunk:
                     self.get_logger().info(f'{name} TCP client disconnected')
                     connection.close()
-                    return None, []
+                    return None
                 buffer.extend(chunk)
                 if len(chunk) < 65536:
                     break
@@ -68,20 +75,40 @@ class AndroidAVBridge(Node):
         except ConnectionError as error:
             self.get_logger().warn(f'{name} TCP connection error: {error}')
             connection.close()
-            return None, []
+            return None
 
+        return connection
+
+    def _read_image_frames(self):
+        """Extract complete Android image protobuf payloads from ``vid_buffer``."""
         frames = []
-        while len(buffer) >= 4:
-            payload_size = struct.unpack('!I', buffer[:4])[0]
-            if payload_size > 10 * 1024 * 1024:
-                self.get_logger().error(f'{name} frame is too large: {payload_size} bytes')
-                connection.close()
-                return None, []
-            if len(buffer) < 4 + payload_size:
+        while True:
+            head_index = self.vid_buffer.find(FRAME_HEAD)
+            if head_index < 0:
+                # Keep a possible partial header for the next TCP read.
+                del self.vid_buffer[:-len(FRAME_HEAD) + 1]
                 break
-            frames.append(bytes(buffer[4:4 + payload_size]))
-            del buffer[:4 + payload_size]
-        return connection, frames
+            if head_index:
+                del self.vid_buffer[:head_index]
+            header_size = len(FRAME_HEAD) + 4
+            if len(self.vid_buffer) < header_size:
+                break
+
+            payload_size = struct.unpack('<I', self.vid_buffer[
+                len(FRAME_HEAD):header_size])[0]
+            if payload_size > MAX_FRAME_SIZE:
+                raise ProtoDecodeError(f'image frame is too large: {payload_size}')
+            frame_size = header_size + payload_size + len(FRAME_TAIL)
+            if len(self.vid_buffer) < frame_size:
+                break
+            tail_start = header_size + payload_size
+            if self.vid_buffer[tail_start:frame_size] != FRAME_TAIL:
+                # Drop one byte and resynchronise on the next header.
+                del self.vid_buffer[:1]
+                continue
+            frames.append(bytes(self.vid_buffer[header_size:tail_start]))
+            del self.vid_buffer[:frame_size]
+        return frames
 
     def receive_data(self):
         if self.vid_conn is None:
@@ -94,27 +121,33 @@ class AndroidAVBridge(Node):
                 self.aud_buffer.clear()
 
         if self.vid_conn is not None:
-            self.vid_conn, video_frames = self._read_frames(
+            self.vid_conn = self._read_available(
                 self.vid_conn, self.vid_buffer, 'Video')
-            for vid_data in video_frames:
-                np_arr = np.frombuffer(vid_data, np.uint8)
-                cv_image = cv2.imdecode(np_arr, cv2.IMREAD_COLOR)
-                if cv_image is not None:
-                    cv2.imshow('Server View', cv_image)
-                    cv2.waitKey(1)
-
+            for protobuf_data in self._read_image_frames():
+                try:
+                    vid_data, seconds, nanos = decode_robot_to_server_message(
+                        protobuf_data)
+                except ProtoDecodeError as error:
+                    self.get_logger().warning(
+                        f'Invalid Android image protobuf: {error}')
+                    continue
                 img_msg = CompressedImage()
                 img_msg.format = 'jpeg'
+                img_msg.header.stamp.sec = seconds
+                img_msg.header.stamp.nanosec = nanos
                 img_msg.data = list(vid_data)
                 self.vid_pub.publish(img_msg)
 
         if self.aud_conn is not None:
-            self.aud_conn, audio_frames = self._read_frames(
+            self.aud_conn = self._read_available(
                 self.aud_conn, self.aud_buffer, 'Audio')
-            for aud_data in audio_frames:
+            # Android sends raw PCM16 on 8897.  Publish each available chunk;
+            # the GUI keeps a trailing odd byte until the next callback.
+            if self.aud_buffer:
                 aud_msg = UInt8MultiArray()
-                aud_msg.data = list(aud_data)
+                aud_msg.data = list(self.aud_buffer)
                 self.aud_pub.publish(aud_msg)
+                self.aud_buffer.clear()
 
     def destroy_node(self):
         for connection in (
@@ -129,10 +162,12 @@ def main(args=None):
     node = AndroidAVBridge()
     try:
         rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
     finally:
         node.destroy_node()
-        cv2.destroyAllWindows()
-        rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

@@ -8,6 +8,7 @@
 #include <QStandardItemModel>
 #include <QStringListModel>
 #include <cmath>
+#include <cstring>
 #include <iostream>
 #include <opencv2/calib3d.hpp>
 #include <opencv2/features2d.hpp>
@@ -37,43 +38,17 @@ extern bool gbPlayAudio;
 extern RobotStatus robot_status;
 // extern ActionOption action_option;
 
-MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), ui(new Ui::MainWindow)
+MainWindow::MainWindow(const rclcpp::Node::SharedPtr &rosNode, QWidget *parent)
+    : QMainWindow(parent), ui(new Ui::MainWindow), rosNode_(rosNode)
 {
     ui->setupUi(this);
     UISetting(ui);
-
-    // One QTcpServer only listens to one port. If you want to listen to
-    // multiple ports, you need to create multiple QTcpServer objects.
-    m_server_receive_image = new QTcpServer();
-    // 2024/12/27 The port number is also hard-coded. I need to modify it in the
-    // future.
-    if (m_server_receive_image->listen(QHostAddress::Any, 8895))
-    {
-        connect(m_server_receive_image, &QTcpServer::newConnection, this,
-                &MainWindow::newConnection_receive_image);
-    }
-    else
-    {
-        exit(EXIT_FAILURE);
-    }
 
     m_server_send_command = new QTcpServer();
     if (m_server_send_command->listen(QHostAddress::Any, 8896))
     {
         connect(m_server_send_command, &QTcpServer::newConnection, this,
                 &MainWindow::newConnection_send_command);
-    }
-    else
-    {
-        exit(EXIT_FAILURE);
-    }
-
-    m_server_receive_audio = new QTcpServer();
-    if (m_server_receive_audio->listen(QHostAddress::Any, 8897))
-    {
-        connect(m_server_receive_audio, &QTcpServer::newConnection, this,
-                &MainWindow::newConnection_receive_audio);
     }
     else
     {
@@ -91,6 +66,21 @@ MainWindow::MainWindow(QWidget *parent)
     {
         exit(EXIT_FAILURE);
     }
+
+    // Android continues to use ports 8895 and 8897.  Those ports are now
+    // owned by android_av_bridge, which converts the existing Android wire
+    // protocol into these ROS topics.  The Qt GUI consumes the topics while
+    // retaining its existing image/audio processing threads.
+    imageSubscription_ = rosNode_->create_subscription<sensor_msgs::msg::CompressedImage>(
+        "/android/camera/compressed", rclcpp::SensorDataQoS(),
+        [this](const sensor_msgs::msg::CompressedImage::SharedPtr message) {
+            onRosImage(message);
+        });
+    audioSubscription_ = rosNode_->create_subscription<std_msgs::msg::UInt8MultiArray>(
+        "/android/audio_buffer", 10,
+        [this](const std_msgs::msg::UInt8MultiArray::SharedPtr message) {
+            onRosAudio(message);
+        });
 
     QTimer *timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, &MainWindow::timer_event);
@@ -251,8 +241,11 @@ MainWindow::~MainWindow()
         socket->close();
         socket->deleteLater();
     }
-    m_server_receive_image->close();
-    m_server_receive_image->deleteLater();
+    if (m_server_receive_image != nullptr)
+    {
+        m_server_receive_image->close();
+        m_server_receive_image->deleteLater();
+    }
 
     foreach (QTcpSocket *socket, connection_set2)
     {
@@ -298,8 +291,11 @@ MainWindow::~MainWindow()
         socket->close();
         socket->deleteLater();
     }
-    m_server_receive_audio->close();
-    m_server_receive_audio->deleteLater();
+    if (m_server_receive_audio != nullptr)
+    {
+        m_server_receive_audio->close();
+        m_server_receive_audio->deleteLater();
+    }
     PortAudio_stop_and_terminate();
     thread_process_audio.wait();
 
@@ -381,6 +377,84 @@ void MainWindow::setLanguage(QString Language)
     {
         throw "Cannot open sentence file: " + SentenceFileName.toStdString();
     }
+}
+
+void MainWindow::onRosImage(
+    const sensor_msgs::msg::CompressedImage::SharedPtr message)
+{
+    if (message == nullptr || message->data.empty())
+        return;
+
+    // ThreadProcessImage already understands RobotToServerMessage.  Re-wrap
+    // the JPEG received from ROS so the image processing code remains shared
+    // with the legacy TCP implementation.
+    RobotCommandProtobuf::RobotToServerMessage robotMessage;
+    robotMessage.set_jpegdatalength(static_cast<int>(message->data.size()));
+    robotMessage.set_jpegdata(
+        reinterpret_cast<const char *>(message->data.data()),
+        message->data.size());
+    robotMessage.mutable_event_time()->set_seconds(message->header.stamp.sec);
+    robotMessage.mutable_event_time()->set_nanos(
+        static_cast<int>(message->header.stamp.nanosec));
+
+    const std::string serialized = robotMessage.SerializeAsString();
+    DataFrame frame;
+    frame.length = serialized.size();
+    frame.data = std::shared_ptr<char[]>(new char[frame.length]);
+    std::memcpy(frame.data.get(), serialized.data(), frame.length);
+    thread_process_image.DataFrames_queue.push(frame);
+    thread_state_control.cond_var_state_control.notify_one();
+}
+
+void MainWindow::onRosAudio(
+    const std_msgs::msg::UInt8MultiArray::SharedPtr message)
+{
+    if (message == nullptr || message->data.empty())
+        return;
+
+    rosAudioRemainder_.insert(rosAudioRemainder_.end(),
+                              message->data.begin(), message->data.end());
+    const std::size_t usableByteCount = rosAudioRemainder_.size() & ~std::size_t(1);
+    if (usableByteCount != 0)
+    {
+        processAudioPcm16(rosAudioRemainder_.data(), usableByteCount);
+        rosAudioRemainder_.erase(rosAudioRemainder_.begin(),
+                                 rosAudioRemainder_.begin() + usableByteCount);
+    }
+}
+
+void MainWindow::processAudioPcm16(const std::uint8_t *data,
+                                   std::size_t byteCount)
+{
+    if (data == nullptr || byteCount < sizeof(std::int16_t))
+        return;
+
+    const std::size_t sampleCount = byteCount / sizeof(std::int16_t);
+    std::vector<short> samples(sampleCount);
+    std::memcpy(samples.data(), data, sampleCount * sizeof(std::int16_t));
+
+    mVABuffer.AddAudio(samples.data(), static_cast<long long>(sampleCount));
+
+    if (msetting.bServerPlaysRobotReceivedAudio)
+    {
+        std::lock_guard<std::mutex> lock(gMutex_audio_buffer);
+        for (short value : samples)
+            AudioBuffer.push(value);
+    }
+
+    if (bstream_recognition)
+    {
+        std::lock_guard<std::mutex> lock(thread_whisper.mtx_whisper_buffer);
+        for (std::size_t i = 0; i < sampleCount; ++i)
+        {
+            thread_whisper.pcmf32_new[i + thread_whisper.bufferlength] =
+                static_cast<float>(samples[i]) / 32768.0f;
+        }
+        thread_whisper.bufferlength += sampleCount;
+    }
+
+    if (AudioBuffer.size() >= 1024)
+        cond_var_audio.notify_one();
 }
 
 void MainWindow::newConnection_receive_image()
@@ -469,40 +543,9 @@ void MainWindow::readSocket3()
 
     char *buffer_head = pbuffer.get();
     qint64 length = socketStream.readRawData(buffer_head, byteAvailable);
-    short *pShort = (short *)buffer_head;
-    long long sampleCount = length / 2;
-
-    // push read buffer to mVABuffer
-    mVABuffer.AddAudio(pShort, sampleCount);
-
-    // Disable here if I don't want to play audio on the server side.
-    if (msetting.bServerPlaysRobotReceivedAudio)
-    {
-        gMutex_audio_buffer.lock();
-        for (long long i = 0; i < sampleCount; i++)
-        {
-            short value = *(pShort + i);
-            AudioBuffer.push(
-                value); // This AudioBuffer is used to play audio on the server
-        }
-        gMutex_audio_buffer.unlock();
-    }
-
-    if (bstream_recognition)
-    {
-        thread_whisper.mtx_whisper_buffer.lock();
-        for (long long i = 0; i < sampleCount; i++)
-        {
-            short value = *(pShort + i);
-            thread_whisper.pcmf32_new[i + thread_whisper.bufferlength] =
-                ((float)value / 32768.0f);
-        }
-        thread_whisper.bufferlength += sampleCount;
-        thread_whisper.mtx_whisper_buffer.unlock();
-    }
-
-    if (AudioBuffer.size() >= 1024)
-        cond_var_audio.notify_one();
+    if (length > 0)
+        processAudioPcm16(reinterpret_cast<const std::uint8_t *>(buffer_head),
+                          static_cast<std::size_t>(length));
 
     if (!socketStream.commitTransaction())
     {
