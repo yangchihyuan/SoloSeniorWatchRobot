@@ -283,6 +283,12 @@ void ThreadProcessImage::run()
 
                 // Draw Pose landmarks
                 mtx_UpdateOutFrame.lock();
+                // A preview should also be available when all optional
+                // detectors are disabled.  Previously bNewoutFrame was only
+                // set by a detector, so a valid incoming camera frame could
+                // be processed without ever reaching MainWindow::timer_event.
+                inputImage.copyTo(outFrame);
+                bNewoutFrame = true;
                 // ToDo: remove this variable.
                 // if( b_HumanPoseEstimation)
                 if (mpsetting->bHumanPoseEstimation)
