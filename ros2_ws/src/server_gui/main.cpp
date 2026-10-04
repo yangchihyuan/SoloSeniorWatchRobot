@@ -32,9 +32,9 @@ int main(int argc, char *argv[])
 //    rclcpp::init(argc, argv);
 //    QApplication app(argc, argv);
     const QString packageShareDirectory = QString::fromStdString(
-        ament_index_cpp::get_package_share_directory("robot_nurse_gui"));
+        ament_index_cpp::get_package_share_directory("server_gui"));
     QDir::setCurrent(packageShareDirectory);
-    auto rosNode = rclcpp::Node::make_shared("robot_nurse_gui");
+    auto rosNode = rclcpp::Node::make_shared("server_gui");
     QCoreApplication::setApplicationName("SoloSeniorWatchRobot");
     QCoreApplication::setApplicationVersion("2026.10.04");
     //It does not work. My application does not have a icon.

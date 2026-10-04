@@ -10,11 +10,11 @@ def generate_launch_description():
             name='android_av_bridge',
             output='screen'
         ),
-        # Launch the second package (robot_nurse_gui) node
+        # Launch the second package (server_gui) node
         Node(
-            package='robot_nurse_gui',        # second package name
+            package='server_gui',        # second package name
             executable='SoloSeniorWatchRobot',# executable name within the package
-            name='robot_nurse_gui',
+            name='server_gui',
             arguments=['json/ROGG16_SSWR.json'],
             output='screen'
         )

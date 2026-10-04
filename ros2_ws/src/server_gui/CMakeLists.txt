@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)    #FetchContent_MakeAvailable() requires CMake 3.14 higher (I am using 4.2.1)
-project(robot_nurse_gui)
+project(server_gui)
 
 # This package keeps the original Qt application intact while making the
 # executable a ROS 2 process that can gradually adopt ROS publishers and

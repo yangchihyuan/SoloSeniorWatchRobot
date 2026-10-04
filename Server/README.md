@@ -146,7 +146,7 @@ You cannot install the pre-built OpenCV and Protocol Buffer packages for Ubuntu 
 # Compile the program
 ```sh
 cd ~/SoloSeniorWatchRobot/ros2_ws
-colcon build --packages-select robot_nurse_gui
+colcon build --packages-select server_gui
 ```
 
 # Executing the server-side program
@@ -155,5 +155,5 @@ The server-side program is a ROS2-based program. You need to launch the ROS2 fir
 ```sh
 cd ~/SoloSeniorWatchRobot/ros2_ws
 source install/setup.bash
-ros2 run robot_nurse_gui SoloSeniorWatchRobot json/ROGG16_SSWR.json
+ros2 run server_gui SoloSeniorWatchRobot json/ROGG16_SSWR.json
 ```
