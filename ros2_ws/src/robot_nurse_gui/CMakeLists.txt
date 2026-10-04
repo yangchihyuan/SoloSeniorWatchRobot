@@ -293,7 +293,7 @@ install(DIRECTORY
   DESTINATION share/${PROJECT_NAME}
   OPTIONAL)
 install(FILES
-  camera-shutter.wav ZenboNurse.png
+  camera-shutter.wav SoloSeniorWatchRobot.png
   yolo11n-pose.onnx yolo11n.onnx
   PatientTitle_Chinese.txt PatientTitle_English.txt
   Sentence_Chinese.txt Sentence_English.txt Sentences_DirtyJokes.txt

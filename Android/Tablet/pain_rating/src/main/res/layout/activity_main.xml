@@ -10,9 +10,9 @@
     android:padding="16dp"
     android:weightSum="2">
 
-    <!-- 第一顆: 痛覺量表按鈕(圖片) -->
+    <!-- First: pain rating scale button (image) -->
 
-    <!-- 第二顆: 撥放影片按鈕(圖片) -->
+    <!-- Second: play video button (image) -->
 
     <ImageButton
         android:id="@+id/btnGoPain"

@@ -463,7 +463,7 @@ fi
 #copy the icon file to /usr/share/pixmaps, which is a standard directory for storing icons in Linux systems. This allows the system to find and display the icon properly when you launch the program from the application menu.
 sudo cp ~/SoloSeniorWatchRobot/Server/ZenboNurse.png /usr/share/pixmaps/ZenboNurse.png
 
-cd ~/SoloSeniorWatchRobot/Server
+cd ~/SoloSeniorWatchRobot/ros2_ws/src/robot_nurse_gui
 mkdir -p ~/.local/share/applications/ && cp SoloSeniorWatchRobot.desktop ~/.local/share/applications/
 
 #update desktop database

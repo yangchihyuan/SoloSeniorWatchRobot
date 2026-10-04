@@ -109,7 +109,7 @@ protected:
     Setting msetting;
 
     string msPatientName = "";  // default name is "patient"
-    string msPatientTitle = ""; // 先生 or 小姐, default is empty string. It is determined by the LLM result of patient name. If the patient name ends with "先生", then the title is "先生". If the patient name ends with "小姐", then the title is "小姐". Otherwise, the title is "".
+    string msPatientTitle = ""; // Honorific; empty by default and determined by the LLM result for the patient's name. Use the corresponding title for names ending in the Chinese equivalents of Mr. or Ms.; otherwise leave empty.
     string GetPatientName(string input_sentence);
     std::map<std::string, std::string> m_mapPatientTitles;
     void LoadPatientTitles();

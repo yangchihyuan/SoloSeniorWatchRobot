@@ -388,16 +388,16 @@ string ThreadStateControl::GetPatientName(string input_sentence)
     options["num_ctx"] = 131072; // number of context tokens, which is the maximum number of tokens the model can handle in a single request
 
     // Todo: I need to repleace the Chinese prompt to English prompt.
-    //  建立更嚴謹的 Prompt，要求模型只輸出 JSON 或純名字
+    // Build a stricter prompt asking the model to output only JSON or a name
     string prompt = "你是一個機器人助手。請從以下句子中提取說話者的姓名。"
                     "規則：1.只回傳姓名 2.不要有任何標點或解釋。"
                     "句子：\"" +
                     input_sentence + "\"";
-    // 呼叫 Ollama
+    // Call Ollama
     string ModelName = "gemma3:1b";
     string name = ollama::generate(ModelName, prompt, options);
 
-    // 去除 LLM 可能誤加的空白或換行
+    // Remove whitespace or newlines the LLM may have added
     name.erase(0, name.find_first_not_of(" \n\r\t"));
     name.erase(name.find_last_not_of(" \n\r\t") + 1);
 

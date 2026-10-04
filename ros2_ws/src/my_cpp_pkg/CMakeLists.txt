@@ -10,25 +10,25 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(std_msgs REQUIRED)
 
-# 1. 產生執行檔 (把 my_cpp_node.cpp 編譯成名為 my_cpp_node 的執行檔)
+# 1. Build the executable (compile my_cpp_node.cpp into an executable named my_cpp_node)
 add_executable(my_cpp_node src/my_cpp_node.cpp)
 
-# 發布者的編譯與依賴
+# Build the publisher and configure its dependencies
 add_executable(my_cpp_pub src/my_cpp_pub.cpp)
 ament_target_dependencies(my_cpp_pub rclcpp std_msgs)
 
-# 訂閱者的編譯與依賴
+# Build the subscriber and configure its dependencies
 add_executable(my_cpp_sub src/my_cpp_sub.cpp)
 ament_target_dependencies(my_cpp_sub rclcpp std_msgs)
 
-# 2. 連結 ROS2 函式庫 (讓執行檔可以使用 rclcpp 的功能)
+# 2. Link the ROS 2 libraries (so the executable can use rclcpp features)
 ament_target_dependencies(my_cpp_node rclcpp)
 
-# 3. 安裝執行檔 (告訴系統把編譯好的檔案放到 install 目錄，讓 ros2 run 能找到)
+# 3. Install the executable (place the built file in the install directory so ros2 run can find it)
 install(TARGETS
   my_cpp_node
-  my_cpp_pub    # 新增發布者
-  my_cpp_sub    # 新增訂閱者  
+  my_cpp_pub    # Add the publisher
+  my_cpp_sub    # Add the subscriber
   DESTINATION lib/${PROJECT_NAME}
 )
 

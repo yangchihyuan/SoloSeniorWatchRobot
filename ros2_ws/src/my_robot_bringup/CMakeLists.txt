@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 3.8)
-project(my_custom_msgs)
+cmake_minimum_required(VERSION 3.14)
+project(my_robot_bringup)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -10,14 +10,6 @@ find_package(ament_cmake REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
-
-# Find the dependencies required to generate messages
-find_package(rosidl_default_generators REQUIRED)
-
-# Tell the system which custom message files we have
-rosidl_generate_interfaces(${PROJECT_NAME}
-  "msg/SensorData.msg"
-)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -30,5 +22,12 @@ if(BUILD_TESTING)
   set(ament_cmake_cpplint_FOUND TRUE)
   ament_lint_auto_find_test_dependencies()
 endif()
+
+# Install launch and config directories
+install(DIRECTORY
+  launch
+  config
+  DESTINATION share/${PROJECT_NAME}
+)
 
 ament_package()

@@ -1,11 +1,11 @@
 <resources>
     <string name="app_name">Tablet</string>
 
-    <!-- 首頁按鈕文字 (若需要用在 contentDescription 或 Toast) -->
+    <!-- Home screen button labels (if needed for contentDescription or Toast) -->
     <string name="desc_pain_btn">Pain Button</string>
     <string name="desc_video_btn">Video Button</string>
 
-    <!-- 首頁文字按鈕(如需) -->
+    <!-- Home screen text buttons (if needed) -->
     <string name="btn_pain">疼痛量表</string>
     <string name="btn_video">播放影片</string>
 

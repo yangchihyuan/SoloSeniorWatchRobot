@@ -2,7 +2,7 @@ import os
 from glob import glob
 from setuptools import find_packages, setup
 
-package_name = 'my_first_pkg'
+package_name = 'audio_video_receiver'
 
 setup(
     name=package_name,
@@ -12,7 +12,7 @@ setup(
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
         ('share/' + package_name, ['package.xml']),
-        # 加入下面這一行！這會把 launch 目錄下所有 .launch.py 檔案安裝到系統中
+        # Add this line to install all .launch.py files from the launch directory.
         (os.path.join('share', package_name, 'launch'), glob('launch/*.launch.py')),
     ],
     install_requires=['setuptools'],
@@ -28,15 +28,15 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            # 格式：'指令名稱 = 套件資料夾.檔名:主函數'
-            'my_node = my_first_pkg.my_node:main',
-            # 加入下面這兩行
-            'my_pub = my_first_pkg.my_publisher:main',
-            'my_sub = my_first_pkg.my_subscriber:main',            
-            # 新增這兩行
-            'my_server = my_first_pkg.my_service_server:main',
-            'my_client = my_first_pkg.my_service_client:main',
-            'android_av_bridge = my_first_pkg.android_av_bridge:main',
+            # Format: 'command_name = package_folder.filename:main_function'
+            'my_node = audio_video_receiver.my_node:main',
+            # Add these two entries.
+            'my_pub = audio_video_receiver.my_publisher:main',
+            'my_sub = audio_video_receiver.my_subscriber:main',            
+            # Add these two entries.
+            'my_server = audio_video_receiver.my_service_server:main',
+            'my_client = audio_video_receiver.my_service_client:main',
+            'android_av_bridge = audio_video_receiver.android_av_bridge:main',
         ],
     },
 )

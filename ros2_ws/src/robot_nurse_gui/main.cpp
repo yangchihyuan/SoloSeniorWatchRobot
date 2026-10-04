@@ -15,31 +15,61 @@
 
 int main(int argc, char *argv[])
 {
+    // 1. Initialize ROS 2 (it reads the required arguments but does not remove them from argc/argv)
     rclcpp::init(argc, argv);
-    QApplication app(argc, argv);
+
+    // 2. Use the built-in ROS 2 utility to remove all ROS-specific arguments (--ros-args, -r, etc.)
+    std::vector<std::string> clean_args = rclcpp::remove_ros_arguments(argc, argv);
+    std::vector<char*> qt_argv;
+    for (auto& arg : clean_args) {
+        qt_argv.push_back(const_cast<char*>(arg.c_str()));
+    }
+    int qt_argc = qt_argv.size();
+
+    // 3. Initialize QApplication with the cleaned arguments
+    QApplication app(qt_argc, qt_argv.data());
+
+//    rclcpp::init(argc, argv);
+//    QApplication app(argc, argv);
     const QString packageShareDirectory = QString::fromStdString(
         ament_index_cpp::get_package_share_directory("robot_nurse_gui"));
     QDir::setCurrent(packageShareDirectory);
     auto rosNode = rclcpp::Node::make_shared("robot_nurse_gui");
-    QCoreApplication::setApplicationName("Robot Nurse Helper");
-    QCoreApplication::setApplicationVersion("2026.07.01");
+    QCoreApplication::setApplicationName("SoloSeniorWatchRobot");
+    QCoreApplication::setApplicationVersion("2026.10.04");
     //It does not work. My application does not have a icon.
-    app.setWindowIcon(QIcon(":/ZenboNurse.png"));
+//    app.setWindowIcon(QIcon(":/ZenboNurse.png"));
+
+    // Suppose the icon is located in the share directory of the package
+    QString iconPath = packageShareDirectory + "/SoloSeniorWatchRobot.png";
+    app.setWindowIcon(QIcon(iconPath));
 
     QCommandLineParser parser;
-    parser.setApplicationDescription("Robot Nurse Helper");
+    parser.setApplicationDescription("Solo Senior Watch Robot");
     parser.addHelpOption();
     parser.addVersionOption();
+    parser.addPositionalArgument("setting-file", "JSON settings file (defaults to json/Setting.json)");
     QString home_directory = QStandardPaths::writableLocation(QStandardPaths::HomeLocation);
 
     QCommandLineOption SettingFileOption("SettingFile", "Setting File", "string", "Setting.json");
     parser.addOption(SettingFileOption);
 
-    parser.process(app);
+    // ROS 2 launch appends arguments such as `--ros-args -r __node:=...`.
+    // They are consumed by rclcpp, but Qt's command-line parser also sees
+    // them and reports them as unknown options. Parse only this app's args.
+    QStringList appArguments = app.arguments();
+    const int rosArgsIndex = appArguments.indexOf("--ros-args");
+    if (rosArgsIndex >= 0) {
+        appArguments = appArguments.mid(0, rosArgsIndex);
+    }
+    parser.process(appArguments);
 
     QString strSetting = "json/Setting.json";
     if (parser.isSet(SettingFileOption)) {
         strSetting = parser.value(SettingFileOption);
+        qDebug() << "Setting file is:" << strSetting;
+    } else if (!parser.positionalArguments().isEmpty()) {
+        strSetting = parser.positionalArguments().constFirst();
         qDebug() << "Setting file is:" << strSetting;
     }
 

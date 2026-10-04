@@ -9,7 +9,7 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.PainRating">
 
-        <!-- MainActivity: 首頁 (兩個圖片按鈕) -->
+        <!-- MainActivity: home screen (two image buttons) -->
         <activity android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape">

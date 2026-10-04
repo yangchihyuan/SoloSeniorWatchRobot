@@ -9,7 +9,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@style/Theme.TabletController">
 
-        <!-- MainActivity: 首頁 -->
+        <!-- MainActivity: home screen -->
         <activity
             android:name=".MainActivity"
             android:exported="true">

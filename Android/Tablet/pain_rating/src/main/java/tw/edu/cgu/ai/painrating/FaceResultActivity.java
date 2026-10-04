@@ -24,7 +24,7 @@ public class FaceResultActivity extends AppCompatActivity {
 
         imgResultFace = findViewById(R.id.imgResultFace);
 
-        // 1. 接收上一頁帶來的分數
+        // 1. Receive the score passed from the previous screen
         int score = getIntent().getIntExtra("score", -1);
         switch (score) {
             case 0:  imgResultFace.setImageResource(R.drawable.face0);  break;
@@ -36,37 +36,37 @@ public class FaceResultActivity extends AppCompatActivity {
             default: break;
         }
 
-        // 2. 先把圖片縮放到 0
+        // 2. First scale the image to 0
         imgResultFace.setScaleX(0f);
         imgResultFace.setScaleY(0f);
 
-        // 3. 等佈局完成後，計算 pivot
+        // 3. After layout is complete, calculate the pivot
         imgResultFace.getViewTreeObserver().addOnGlobalLayoutListener(
                 new ViewTreeObserver.OnGlobalLayoutListener() {
                     @Override
                     public void onGlobalLayout() {
                         imgResultFace.getViewTreeObserver().removeOnGlobalLayoutListener(this);
 
-                        // A) 螢幕中心
+                        // A) Screen center
                         DisplayMetrics dm = getResources().getDisplayMetrics();
                         float screenCenterX = dm.widthPixels / 2f;
                         float screenCenterY = dm.heightPixels / 2f;
 
-                        // B) 取得圖片左上角(絕對座標)
+                        // B) Get the image's top-left corner (absolute coordinates)
                         int[] loc = new int[2];
                         imgResultFace.getLocationOnScreen(loc);
                         float imageLeft = loc[0];
                         float imageTop  = loc[1];
 
-                        // C) pivot = (螢幕中心) - (圖片左上角)
+                        // C) pivot = (screen center) - (image top-left corner)
                         float pivotX = screenCenterX - imageLeft;
                         float pivotY = screenCenterY - imageTop;
 
-                        // 設定縮放中心
+                        // Set the scaling center
                         imgResultFace.setPivotX(pivotX);
                         imgResultFace.setPivotY(pivotY);
 
-                        // 4. 執行放大動畫
+                        // 4. Run the zoom-in animation
                         doScaleAnimation();
                     }
                 }

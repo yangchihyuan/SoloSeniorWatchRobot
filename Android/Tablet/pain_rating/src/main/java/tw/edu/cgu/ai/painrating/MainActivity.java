@@ -21,7 +21,7 @@ public class MainActivity extends AppCompatActivity {
         btnGoVideo = findViewById(R.id.btnGoVideo);
         btnNetworkSetting = findViewById(R.id.btnNetworkSetting);
 
-        // 1. 點擊 -> PainActivity
+        // 1. Tap -> PainActivity
         btnGoPain.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // 2. 點擊 -> VideoActivity
+        // 2. Tap -> VideoActivity
         btnGoVideo.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {

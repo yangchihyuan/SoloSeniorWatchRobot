@@ -6,10 +6,10 @@ from example_interfaces.srv import AddTwoInts
 class MinimalClient(Node):
     def __init__(self):
         super().__init__('minimal_client')
-        # 建立客戶端，服務名稱必須跟伺服端完全一樣 ('add_two_ints')
+        # Create a client; the service name must exactly match the server's ('add_two_ints')
         self.cli = self.create_client(AddTwoInts, 'add_two_ints')
         
-        # 檢查伺服器是否已經上線，如果沒有就每秒檢查一次
+        # Check whether the server is available; if not, check again every second
         while not self.cli.wait_for_service(timeout_sec=1.0):
             self.get_logger().info('伺服器還沒準備好，等待中...')
             
@@ -18,24 +18,24 @@ class MinimalClient(Node):
     def send_request(self, a, b):
         self.req.a = a
         self.req.b = b
-        # call_async 會把請求發送出去，並回傳一個「未來結果 (Future)」物件
+        # call_async sends the request and returns a Future object
         return self.cli.call_async(self.req)
 
 def main(args=None):
     rclpy.init(args=args)
     client = MinimalClient()
     
-    # 我們設計讓使用者可以在終端機輸入數字，沒輸入就預設算 3 + 4
+    # Let users enter numbers in the terminal; default to 3 + 4 if no input is given
     a = int(sys.argv[1]) if len(sys.argv) == 3 else 3
     b = int(sys.argv[2]) if len(sys.argv) == 3 else 4
     
-    # 呼叫函數發送請求
+    # Call the function to send the request
     future = client.send_request(a, b)
     
-    # 程式會暫停卡在這裡 (Block)，直到伺服器把結果傳回來為止！
+    # The program blocks here until the server returns the result
     rclpy.spin_until_future_complete(client, future)
     
-    # 取得結果並印出
+    # Get and print the result
     response = future.result()
     client.get_logger().info(f'伺服器回傳結果: {a} + {b} = {response.sum}')
 

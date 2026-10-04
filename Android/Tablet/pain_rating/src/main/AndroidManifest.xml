@@ -8,7 +8,7 @@
         android:label="@string/app_name"
         android:theme="@style/Theme.Tablet">
 
-        <!-- MainActivity: 首頁 (兩個圖片按鈕) -->
+        <!-- MainActivity: home screen (two image buttons) -->
         <activity android:name=".MainActivity"
             android:exported="true"
             android:screenOrientation="landscape">
@@ -18,10 +18,10 @@
             </intent-filter>
         </activity>
 
-        <!-- PainActivity: 使用一整張量表圖 + 座標判斷 -->
+        <!-- PainActivity: use the full rating scale image and determine selection by coordinates -->
         <activity android:name=".PainActivity" />
 
-        <!-- VideoActivity: 撥放影片，結束自動回首頁 -->
+        <!-- VideoActivity: play a video, then automatically return to the home screen -->
         <activity android:name=".VideoActivity" />
         <activity android:name=".FaceResultActivity" />
         <activity android:name=".NetworkSettingActivity" />

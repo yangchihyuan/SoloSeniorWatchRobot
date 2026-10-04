@@ -3,20 +3,20 @@ from rclpy.node import Node
 
 class MyFirstNode(Node):
     def __init__(self):
-        # 初始化節點名稱為 'hello_node'
+        # Initialize the node with the name 'hello_node'.
         super().__init__('hello_node')
-        self.get_logger().info('你好！我的第一個 ROS2 節點成功啟動了！')
+        self.get_logger().info('Hello! My first ROS 2 node has started successfully!')
         
-        # 建立一個計時器，每 1.0 秒執行一次 timer_callback 函數
+        # Create a timer that calls timer_callback every 1.0 seconds.
         self.timer = self.create_timer(1.0, self.timer_callback)
 
     def timer_callback(self):
-        self.get_logger().info('節點正在背景持續運作中...')
+        self.get_logger().info('The node is running in the background...')
 
 def main(args=None):
     rclpy.init(args=args)
     node = MyFirstNode()
-    rclpy.spin(node)     # 讓程式停留在這裡持續運作
+    rclpy.spin(node)     # Keep the program running here.
     node.destroy_node()
     rclpy.shutdown()
 
