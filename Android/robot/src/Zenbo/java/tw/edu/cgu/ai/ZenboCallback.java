@@ -139,7 +139,40 @@ public class ZenboCallback extends RobotCallback implements RobotCallback.Listen
 
     @Override
     public void onVoiceDetect(JSONObject jsonObject) {
+        // Sample code from Gemini. I haven't check if it works. I will check it later.
+        if (jsonObject == null) {
+            return;
+        }
 
+        try {
+            //Debug
+            Log.d("ZenboJSON", "onVoiceDetect Raw:\n" + jsonObject.toString(2));
+
+            // 1. Parse DOA (Default value is -1 representing invalid angle)
+            int doaAngle = jsonObject.optInt("iAngle", -1);
+
+            // 2. Parse voice detection status (true: speaking / false: not speaking)
+            boolean isVoiceDetected = jsonObject.optBoolean("bDetect", false);
+
+            // 3. (Optional) Parse event type string
+            String eventType = jsonObject.optString("type", "");
+
+            Log.d("DOA", String.format("DOA Angle: %d°, Voice Active: %b, Event: %s",
+                    doaAngle, isVoiceDetected, eventType));
+
+            // 4. Do according to DOA angle for control logic
+            if (isVoiceDetected && doaAngle >= 0) {
+                onSourceLocated(doaAngle);
+            }
+
+        } catch (Exception e) {
+            Log.e("DOA", "Failed to parse onVoiceDetect JSONObject", e);
+        }
+    }
+
+    private void onSourceLocated(int angle) {
+        // Here, you can use robotAPI.motion to control Zenbo's motor to turn to the corresponding angle
+        // For example: robotAPI.motion.turnTo((float) angle, ...);
     }
 
     @Override

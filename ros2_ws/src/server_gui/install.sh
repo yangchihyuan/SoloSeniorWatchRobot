@@ -165,8 +165,16 @@ make -j 10    #prevent memory peak usage
 make check     # this command will generate a peak memory usage
 sudo make install
 sudo ldconfig # refresh shared library cache.
+#install protobuf 3.19.1 for Python
+python3 -m pip install 'protobuf==3.19.1' --break-system-packages
 
-
+#generate the Python code from the .proto file
+cd ~/SoloSeniorWatchRobot
+protoc \
+  -I=ros2_ws/src/server_gui \
+  --python_out=ros2_ws/src/audio_video_receiver/audio_video_receiver \
+  ros2_ws/src/server_gui/RobotCommand.proto
+# a file RobotCommand_pb2.py is generated in ros2_ws/src/audio_video_receiver/audio_video_receiver
 
 #install MediaPipe v0.10.22
 cd ~
