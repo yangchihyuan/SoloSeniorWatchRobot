@@ -1,15 +1,15 @@
 #!/bin/bash
 
-#2026 Jan 22
-#Install Robot Nurse Helper to Ubuntu 24.04 and NVidia AGX Orin
+#October 12, 2026
+#Install SoloSeniorWatchRobot to Ubuntu 26.04.1
 #Author: Chih-Yuan Yang
-#Project: Robot Nurse Helper
+#Project: SoloSeniorWatchRobot
 
-read -p "Is your RAM + swap greater than 32G? [Y/n]" EnoughRAM
-if ! [[ "$EnoughRAM" == "Y" || "$EnoughRAM" == "y" ]]; then
-  echo "You need 32G to compile the SoloSeniorWatchRobot program. If you don't have enough RAM, enlarge your swap."
-  exit
-fi
+#read -p "Is your RAM + swap greater than 32G? [Y/n]" EnoughRAM
+#if ! [[ "$EnoughRAM" == "Y" || "$EnoughRAM" == "y" ]]; then
+#  echo "You need 32G to compile the SoloSeniorWatchRobot program. If you don't have enough RAM, enlarge your swap."
+#  exit
+#fi
 
 
 read -p "What is your machine [PC/AGXOrin]" machine
@@ -28,46 +28,14 @@ if [ "$machine" = "PC" ]; then
     echo "This install.sh script cannot fully automatically install a Nvidia GPU driver because your UEFI secure boot is on. If you want to use this instal.sh to fully automatically install a NVidia GPU driver, you need to set your UEFI secure boot off. Otherwise, you need to install the Nvidia GPU driver manually."
     read -p "Do you want to stop the install.sh? [y/n]" StopInstall
     if ! [[ "$StopInstall" == "Y" || "$StopInstall" == "y" ]]; then
-      echo "You can continue to install the Robot Nurse Helper, but you need to install the Nvidia GPU driver manually after the installation."
+      echo "You can continue to install the SoloSeniorWatchRobot, but you need to install the Nvidia GPU driver manually after the installation."
     else
       echo "You can run this install.sh again after you set your UEFI secure boot off."
       exit  #stop the installation script
     fi  
   fi
 
-  read -p "What is your GPU model? [none/3050laptop/4070laptop/4080/4090]" GPUModel
-
-  #Check if the VARAM size is valid
-  if [ "$GPUModel" = "none" ]; then
-    VRAMSize=0
-  elif [ "$GPUModel" = "3050laptop" ]; then
-    VRAMSize=4
-  elif [ "$GPUModel" = "4070laptop" ]; then
-    VRAMSize=8
-  elif [ "$GPUModel" = "4080" ]; then
-    VRAMSize=16
-  elif [ "$GPUModel" = "4090" ]; then
-    VRAMSize=24
-  else
-    echo "Error: '$GPUModel' is not in the allowed list. Please try again."
-    exit
-  fi
-
-  if (( VRAMSize > 0 )); then
-    #echo "We will detect the GPU driver. If there is no driver, we will install the driver for you. But you need to restart your PC after the installation."
-    #Check if the GPU driver is installed
-    sudo apt update   #this command is required because Ubuntu's repositories URL changed after its release in 2024 April.
-    #ubuntu-drivers devices             #list available drivers
-    #Don't use this command. It sometimes downgrades the GPU driver to an older version, which causes boot-failure problems.
-    #sudo ubuntu-drivers autoinstall    #Sometimes the system need a reboot. Otherwise Ubuntu does not detect the GPU.
-    nvidia-smi
-    read -p "Can you see the nvidia-smi GPU usage messages? [y/n]" GPUDriverWork
-    if ! [[ "$GPUDriverWork" == "Y" || "$GPUDriverWork" == "y" ]]; then
-      echo "Your NVidia GPU driver is not ready yet. You need to install the NVidia GPU driver first, and then run this install.sh script again."
-      exit
-    fi
-  fi
-
+  read -p "How large is your VRAM size in GB?" VRAMSize
 fi
 
 read -p "What is the robot model you use? [Zenbo/Kebbi/ZenboJrII]" RobotModel
@@ -94,23 +62,20 @@ fi
 
 
 #Install the compiler
-#On Ubuntu 22.04, the g++ version is 11.4.0, which only support up to C++17. But my code needs C++20.
 sudo apt -y install build-essential
 
 #install git
 sudo apt -y install git
 
 #install zip
+#Do I still need to install zip?
 sudo apt -y install zip
 
-#install libgtk2.0-dev, which is used in OpenCV to show images
-sudo apt -y install libgtk2.0-dev 
+#install libgtk3-dev, which is used in OpenCV to show images
+sudo apt -y install libgtk3-dev 
 
-#create an empty workding directory
-if [ -d "SoloSeniorWatchRobot_build" ]; then
-    rm -rf SoloSeniorWatchRobot_build
-fi
-mkdir SoloSeniorWatchRobot_build
+#create the working directory without deleting downloaded archives
+mkdir -p SoloSeniorWatchRobot_build
 
 #sudo apt -y install cmake
 
@@ -136,25 +101,52 @@ fi
 #install OpenCV 4.11 first, because it requires to key in sudo password again
 cd ~/SoloSeniorWatchRobot_build
 
-wget -O opencv4.11.zip https://github.com/opencv/opencv/archive/refs/tags/4.11.0.zip
-wget -O opencv_contrib4.11.zip https://github.com/opencv/opencv_contrib/archive/refs/tags/4.11.0.zip
-unzip opencv4.11.zip
-unzip opencv_contrib4.11.zip
-cd opencv-4.11.0
-mkdir -p build && cd build
-sudo apt install libvtk9-dev       #vtk is required to compile opencv_vis module, which is required by EmotiEffLib
-#      -D WITH_VTK=ON \             #for emotiefflib
-#      -D BUILD_opencv_viz=ON       #for emotiefflib
-cmake  .. -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.11.0/modules \
-      -D WITH_VTK=ON \
-      -D BUILD_opencv_viz=ON
-cmake --build . -j $(nproc)
-sudo make install
-#to config the loading directories to let /usr/local/lib works
-sudo ldconfig
+InstalledOpenCVVersion=""
+if command -v opencv_version >/dev/null 2>&1; then
+  InstalledOpenCVVersion=$(opencv_version 2>/dev/null)
+elif command -v pkg-config >/dev/null 2>&1 && pkg-config --exists opencv4; then
+  InstalledOpenCVVersion=$(pkg-config --modversion opencv4 2>/dev/null)
+fi
+
+if [[ "$InstalledOpenCVVersion" =~ ^4\.11(\.|$) ]]; then
+  echo "OpenCV $InstalledOpenCVVersion is already installed. Skipping the OpenCV build."
+else
+  if [[ -s opencv4.11.zip && -s opencv_contrib4.11.zip ]]; then
+    read -r -p "OpenCV 4.11 archives are already downloaded. Skip downloading them? [Y/n] " SkipOpenCVDownload
+    if [[ "$SkipOpenCVDownload" =~ ^[Nn]$ ]]; then
+      wget -O opencv4.11.zip https://github.com/opencv/opencv/archive/refs/tags/4.11.0.zip
+      wget -O opencv_contrib4.11.zip https://github.com/opencv/opencv_contrib/archive/refs/tags/4.11.0.zip
+    fi
+  else
+    if [[ ! -s opencv4.11.zip ]]; then
+      wget -O opencv4.11.zip https://github.com/opencv/opencv/archive/refs/tags/4.11.0.zip
+    fi
+    if [[ ! -s opencv_contrib4.11.zip ]]; then
+      wget -O opencv_contrib4.11.zip https://github.com/opencv/opencv_contrib/archive/refs/tags/4.11.0.zip
+    fi
+  fi
+  unzip opencv4.11.zip
+  unzip opencv_contrib4.11.zip
+  cd opencv-4.11.0
+  mkdir -p build && cd build
+  sudo apt install libvtk9-dev       #vtk is required to compile opencv_vis module, which is required by EmotiEffLib
+  #      -D WITH_VTK=ON \             #for emotiefflib
+  #      -D BUILD_opencv_viz=ON       #for emotiefflib
+  # Ubuntu 26.04.1 has ffmpeg version 8.0.1, which is not compatible with OpenCV 4.11. So, we need to disable ffmpeg in OpenCV 4.11.
+  cmake  .. -DOPENCV_EXTRA_MODULES_PATH=../../opencv_contrib-4.11.0/modules \
+        -D WITH_VTK=ON \
+        -D BUILD_opencv_viz=ON \
+        -DWITH_FFMPEG=OFF
+  cmake --build . -j $(nproc)
+  sudo make install
+  #to config the loading directories to let /usr/local/lib works
+  sudo ldconfig
+fi
 
 
 #intall protobuf 3.19.1
+#For Ubuntu 26.04.1, the default protobuf version is 3.21.12.
+#I don't know if 3.21.12 is compatible with MediaPipe v0.10.22. So, I install protobuf 3.19.1.
 cd ~/SoloSeniorWatchRobot_build
 wget -O protobuf-all-3.19.1.zip https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-all-3.19.1.zip
 unzip protobuf-all-3.19.1.zip
@@ -178,7 +170,7 @@ cd mediapipe
 git checkout v0.10.22
 
 #download our files
-cd 
+cd ~
 if [ -d "SoloSeniorWatchRobot" ]; then
     rm -rf SoloSeniorWatchRobot
 fi
