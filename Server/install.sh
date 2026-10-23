@@ -202,7 +202,11 @@ if [ "$machine" = "AGXOrin" ]; then
 #    sha256 = "8eeb81ff6bc7ab2de678c0c4a3d18b02c382a5122ac4edc26a3334c858531739",
   sed -i 's/ad37707084a6d4ff41be10cbe8540c75bea057ba79d0de6c367c1bfac6ba0852/8eeb81ff6bc7ab2de678c0c4a3d18b02c382a5122ac4edc26a3334c858531739/g' WORKSPACE
 fi
-bazel build -c opt mediapipe/examples/desktop/libmp:libmp_gpu.so
+#This command works on Ubuntu 24.04.
+#bazel build -c opt mediapipe/examples/desktop/libmp:libmp_gpu.so
+#Ubuntu 26.04.1 has Python 3.14, but MediaPipe v0.10.22 does not support Python 3.14 yet. So, we need to use Python 3.12 to build the libmp_gpu.so library.
+#MediaPipe 0.10.36 starts to support Python 3.14. But I have not test the new version yet.
+bazel build -c opt --repo_env=HERMETIC_PYTHON_VERSION=3.12 mediapipe/examples/desktop/libmp:libmp_gpu.so
 
 #chekc if the bazel build is successful. Sometimes the repository is unavailable and bazel does not work.
 DIR="bazel-out"
