@@ -1,23 +1,15 @@
 #!/bin/bash
-#Chih-Yuan Yang 2026/8/03
-#Build the Robot Nurse Helper project with CMake
-#I wrote this shell script file to call another shell script file.
+#Chih-Yuan Yang 2026 Oct 24
+#Build the Solo Senior Watch Robot in ROS 2
 
-if [ $# == 1 ]; then
-    if [[ "$1" == "clean" ]]; then
-        rm -rf build
-    elif [[ "$1" == "Zenbo" || "$1" == "ZenboJrII" ]]; then
-        echo "Building for Zenbo or ZenboJrII"
-        cmake -S . -B build -DROBOT_MODEL=Zenbo
-        cmake --build build -j $(nproc)
-    elif [[ "$1" == "Kebbi" ]]; then
-        echo "Building for Kebbi"
-        cmake -S . -B build -DROBOT_MODEL=Kebbi -DCMAKE_CXX_FLAGS="-Wno-psabi"
-        cmake --build build -j $(nproc)
-    else
-        echo "Invalid argument: $1"
-        echo "Usage: ./build_project.sh [clean|Zenbo|ZenboJrII|Kebbi]"
-    fi
+# Build the ROS 2 workspace
+if [ -f /opt/ros/lyrical/setup.bash ]; then
+  # The .bashrc entry does not affect this already-running installer shell.
+  source /opt/ros/lyrical/setup.bash
 else
-    echo "Usage: ./build_project.sh [clean|Zenbo|ZenboJrII|Kebbi]"
+  echo "Error: ROS 2 Lyrical is not installed at /opt/ros/lyrical."
+  exit 1
 fi
+cd ~/SoloSeniorWatchRobot/ros2_ws
+colcon build --symlink-install \
+  --packages-select audio_video_receiver server_gui my_robot_bringup
