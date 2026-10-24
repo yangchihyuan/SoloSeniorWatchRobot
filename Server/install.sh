@@ -515,7 +515,7 @@ fi
 #install the desktop file to let users launch the program by clicking the icon
 #copy the icon file to /usr/share/pixmaps, which is a standard directory for storing icons in Linux systems. This allows the system to find and display the icon properly when you launch the program from the application menu.
 #We no longer need the program because the program has been moved to the ros2 system.
-sudo cp ~/SoloSeniorWatchRobot/Server/ZenboNurse.png /usr/share/pixmaps/ZenboNurse.png
+sudo cp ~/SoloSeniorWatchRobot/Server/SoloSeniorWatchRobot.png /usr/share/pixmaps/SoloSeniorWatchRobot.png
 mkdir -p ~/.local/share/applications/
 
 #replace the @SERVER_DIR@ in SoloSeniorWatchRobot.desktop with the actual path of the Server directory, and copy it to ~/.local/share/applications/
