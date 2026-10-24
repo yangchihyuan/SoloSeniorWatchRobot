@@ -80,3 +80,6 @@ captures/
 
 # Local configuration
 local.properties
+
+# Python
+__pycache__/
