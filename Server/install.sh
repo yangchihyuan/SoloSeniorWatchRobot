@@ -1,16 +1,33 @@
 #!/bin/bash
 
-#October 12, 2026
+#October 24, 2026
 #Install SoloSeniorWatchRobot to Ubuntu 26.04.1
 #Author: Chih-Yuan Yang
 #Project: SoloSeniorWatchRobot
 
-#read -p "Is your RAM + swap greater than 32G? [Y/n]" EnoughRAM
-#if ! [[ "$EnoughRAM" == "Y" || "$EnoughRAM" == "y" ]]; then
-#  echo "You need 32G to compile the SoloSeniorWatchRobot program. If you don't have enough RAM, enlarge your swap."
-#  exit
-#fi
+read -p "How large is your RAM + swap (GiB)?" RAMSize
+if (( $(echo "$RAMSize < 32" | bc -l) )); then
+  echo "You had better have 32G to compile the SoloSeniorWatchRobot program. Otherwise, some applications may not killed during installation. If you don't have enough RAM, enlarge your swap."
+  read -p "Do you want to continue? [Y/n]" Continue
+  if ! [[ "$Continue" == "Y" || "$Continue" == "y" ]]; then
+    exit
+  fi
+fi
 
+
+# 1. ask for sudo password
+sudo -v
+
+# 2. update the sudo timestamp (every 60 seconds)
+# When the main script (PID) exits, this background loop will also exit automatically
+while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+
+# Next, place the installation commands that require a long time to execute...
+echo "Starting long-running installation..."
+
+
+source /etc/os-release
+echo "Ubuntu version: $VERSION_ID"
 
 read -p "What is your machine [PC/AGXOrin]" machine
 if [ "$machine" = "AGXOrin" ]; then
@@ -220,8 +237,7 @@ fi
 
 #Qt
 #We use it to create our GUI
-sudo apt -y install qt6-base-dev    
-sudo apt -y install qt6-multimedia-dev
+sudo apt -y install qt6-base-dev qt6-tools-dev qt6-multimedia-dev
 #It will install Qt version 6.4.2.
 #Hint
 #The two commands to install Qt base and multimedia libraries allow you to compile this project. However, they do not install Qt Designer, a convenient tool to the GUI file mainwindow.ui. If you want to install Qt Designer, you need to use this command
@@ -298,16 +314,22 @@ fi
 cd ~/SoloSeniorWatchRobot_build
 git clone https://github.com/snakers4/silero-vad.git
 
-#The EmotiEffLib uses a 3rd party library 3rdparty/xtl/CMakeLists.txt, which requires CMake 3.29 or above.
-sudo apt update
-sudo apt install software-properties-common wget apt-transport-https ca-certificates gnupg -y
-wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
-# Example: Replace <UBUNTU_CODENAME> with your actual codename
-echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
-# Update your package list
-sudo apt update
-sudo apt install cmake -y
-cmake --version   #It should be 4.1.2
+#The EmotiEffLib uses a 3rd party library 3rdparty/xtl/CMakeLists.txt, which requires CMake 3.29 or above. Ubuntu 26.04.1 has CMake 4.2.2, which is enough for EmotiEffLib. But Ubuntu 24.04 has CMake 3.22.1, which is not enough for EmotiEffLib. So, we need to install CMake 4.2.2 on Ubuntu 24.04.
+if [ "$VERSION_ID" == "26.04" ]; then
+    echo "You are running Ubuntu 26.04. You have CMake 4.2.2, which is enough for EmotiEffLib. You can continue to install the SoloSeniorWatchRobot."
+elif [ "$VERSION_ID" == "24.04" ]; then
+    sudo apt update
+    sudo apt install software-properties-common wget apt-transport-https ca-certificates gnupg -y
+    wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /usr/share/keyrings/kitware-archive-keyring.gpg >/dev/null
+    # Example: Replace <UBUNTU_CODENAME> with your actual codename
+    echo 'deb [signed-by=/usr/share/keyrings/kitware-archive-keyring.gpg] https://apt.kitware.com/ubuntu/ noble main' | sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+    # Update your package list
+    sudo apt update
+    sudo apt install cmake -y
+    cmake --version   #It should be 4.1.2
+else
+    echo "You are running a different version: $VERSION_ID"
+fi
 
 #EmotiEffLib needs libopenblas-dev
 sudo apt install libopenblas-dev
@@ -350,6 +372,8 @@ elif [ "$machine" = "AGXOrin" ]; then
   wget -O- https://ollama.com/install.sh | sh
 fi
 
+#launch the service first
+sudo systemctl enable --now ollama
 ollama pull gemma3:1b
 if [ "$VRAMSize" -ge 24 ]; then
   ollama pull gemma3:12b
@@ -363,6 +387,7 @@ cd ~/SoloSeniorWatchRobot_build
 git clone https://github.com/jmont-dev/ollama-hpp.git
 cd ~/SoloSeniorWatchRobot_build/ollama-hpp
 git checkout v0.9.5
+#2026/10/24. The latest version is still 0.9.7.
 #The ollama.hpp vesion 0.9.7 has a conclict with GCC 13 std::hash (GCC is the default compiler package on Ubuntu 24.04).
 #The old verion 0.9.5 does not have this problem because it does not use std::hash. So I use the old version 0.9.5 to prevent the compilation error.
 #However, the 0.9.5 version is incompatible with the latest version of cpp-httplib 0.30.0.
@@ -418,7 +443,31 @@ git clone https://github.com/yhirose/cpp-httplib.git
 cd cpp-httplib
 git checkout v0.34.0
 
-#Build our own program
+#Install ROS 2 lyrical.
+# 1. Enable the Ubuntu Universe repository
+sudo apt install software-properties-common -y
+# The "universe" repository, which contains thousands of free, open-source software packages maintained by the Linux community rather than Canonical
+sudo add-apt-repository universe
+
+# 2. Download and add the official ROS 2 GPG key
+sudo apt update && sudo apt install curl -y
+sudo curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+
+# 3. Add the ROS 2 repository to your sources list
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+# 4. Update your package lists to recognize the newly added repository
+sudo apt update
+
+# 5. Install the ROS 2 desktop package
+sudo apt install ros-lyrical-desktop -y
+#add the stirng if the string does not exist in the file. If the string exists, do nothing.
+grep -qxF "source /opt/ros/lyrical/setup.bash" ~/.bashrc || echo "source /opt/ros/lyrical/setup.bash" >> ~/.bashrc
+
+#For ROS 2 node developers, we need the colcon build system
+sudo apt install python3-colcon-common-extensions build-essential -y
+
+#Build our own program. We no longer need the program because the program has been moved to the ros2 system. 
 cd ~/SoloSeniorWatchRobot/Server
 ./build_project.sh $RobotModel
 #copy the required mediapipe files to Server
@@ -433,34 +482,46 @@ cp -r temp/home/$USER/mediapipe/mediapipe .
 rm -rf temp
 
 #copy the file to prevent Nvidia GPU from being unavailable after laptop suspends
-if [ "$machine" = "PC" ] && [[ "$GPUModel" == "3050laptop" || "$GPUModel" == "4070laptop" ]]; then
-  sudo cp ~/SoloSeniorWatchRobot/Server/nvidia-power-management.conf /etc/modprobe.d/
-  sudo update-initramfs -u
-fi
+#Does this problem remain in Ubuntu 26.04? I need to test it later.
+#if [ "$machine" = "PC" ] && [[ "$GPUModel" == "3050laptop" || "$GPUModel" == "4070laptop" ]]; then
+#  sudo cp ~/SoloSeniorWatchRobot/Server/nvidia-power-management.conf /etc/modprobe.d/
+#  sudo update-initramfs -u
+#fi
 
 #Dowload media files from internet
 cd ~/SoloSeniorWatchRobot_build
 #wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1n5GuS6kqABCq5hGLOToFV_11V9mmEHZR' -O SoloSeniorWatchRobot.zip
 #for large files (>100MB), Google Drive will block the download and ask for a confirmation. Press F12 when you use your brower to download the file. In the Network tab, your will see the authentic url.
-wget --no-check-certificate 'https://drive.usercontent.google.com/download?id=1zVMH3INErwSuXJ1TF2gfPe2O0HVLu381&export=download&authuser=0&confirm=t&uuid=d4298704-bde8-444d-9ca4-0e36402c1e1f&at=APcXIO3sT6c9dZSljEclJVnWV_OW%3A1770877164167' -O SoloSeniorWatchRobot_MediaFiles.zip
-unzip SoloSeniorWatchRobot_MediaFiles.zip -d SoloSeniorWatchRobot_MediaFiles
-cp -r SoloSeniorWatchRobot_MediaFiles/SoloSeniorWatchRobot/* ~/SoloSeniorWatchRobot
+#This link fails, why?
+#wget --no-check-certificate 'https://drive.usercontent.google.com/download?id=1zVMH3INErwSuXJ1TF2gfPe2O0HVLu381&export=download&authuser=0&confirm=t&uuid=d4298704-bde8-444d-9ca4-0e36402c1e1f&at=APcXIO3sT6c9dZSljEclJVnWV_OW%3A1770877164167' -O SoloSeniorWatchRobot_MediaFiles.zip
+#unzip SoloSeniorWatchRobot_MediaFiles.zip -d SoloSeniorWatchRobot_MediaFiles
+#cp -r SoloSeniorWatchRobot_MediaFiles/SoloSeniorWatchRobot/* ~/SoloSeniorWatchRobot
 
 
 #for play video and audio in Qt Multimedia
-sudo apt install libcanberra-gtk-module libcanberra-gtk3-module   #for system sound support in Qt Multimedia
-if [ "$machine" = "AGXOrin" ]; then
-  sudo apt install gstreamer1.0-tools gstreamer1.0-nice gstreamer1.0-qt5 gstreamer1.0-plugins-base
-  sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
-  sudo apt install gstreamer1.0-libav
-fi 
+#Ubuntu 26.04 removed the GTK2 package libcanberra-gtk-module
+if [ "$VERSION_ID" == "26.04" ]; then
+  sudo apt install  libcanberra-gtk3-module   #for system sound support in Qt Multimedia
+elif [ "$VERSION_ID" == "24.04" ]; then
+  sudo apt install libcanberra-gtk-module libcanberra-gtk3-module   #for system sound support in Qt Multimedia
+else
+  if [ "$machine" = "AGXOrin" ]; then
+    sudo apt install gstreamer1.0-tools gstreamer1.0-nice gstreamer1.0-qt5 gstreamer1.0-plugins-base
+    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+    sudo apt install gstreamer1.0-libav
+  fi 
+fi
 
 #install the desktop file to let users launch the program by clicking the icon
 #copy the icon file to /usr/share/pixmaps, which is a standard directory for storing icons in Linux systems. This allows the system to find and display the icon properly when you launch the program from the application menu.
+#We no longer need the program because the program has been moved to the ros2 system.
 sudo cp ~/SoloSeniorWatchRobot/Server/ZenboNurse.png /usr/share/pixmaps/ZenboNurse.png
+mkdir -p ~/.local/share/applications/
 
-cd ~/SoloSeniorWatchRobot/Server
-mkdir -p ~/.local/share/applications/ && cp SoloSeniorWatchRobot.desktop ~/.local/share/applications/
+#replace the @SERVER_DIR@ in SoloSeniorWatchRobot.desktop with the actual path of the Server directory, and copy it to ~/.local/share/applications/
+sed "s|@SERVER_DIR@|$HOME/SoloSeniorWatchRobot/Server|g" \
+  SoloSeniorWatchRobot.desktop \
+  > ~/.local/share/applications/SoloSeniorWatchRobot.desktop
 
 #update desktop database
 update-desktop-database ~/.local/share/applications/
@@ -482,10 +543,26 @@ if [ "$machine" = "PC" ]; then
   ls -l /usr/lib/x86_64-linux-gnu/libcudnn.so.9
 fi
 
+#For the audio_video_receiver program, we need to install python3-protobuf to let the program run properly. The protobuf version installed by the command "sudo apt install libprotobuf-dev" is 3.21.12, which is not compatible with the protobuf version used in the audio_video_receiver program. So, we need to install python3-protobuf to let the program run properly.
+sudo apt install python3-protobuf
+
+# Build the ROS 2 workspace
+if [ -f /opt/ros/lyrical/setup.bash ]; then
+  # The .bashrc entry does not affect this already-running installer shell.
+  source /opt/ros/lyrical/setup.bash
+else
+  echo "Error: ROS 2 Lyrical is not installed at /opt/ros/lyrical."
+  exit 1
+fi
+cd ~/SoloSeniorWatchRobot/ros2_ws
+colcon build --symlink-install \
+  --packages-select audio_video_receiver server_gui my_robot_bringup
+
+
 ##############################
 #install AnythingLLM for RAG
 ##############################
-#The library is required by AnythingLLM, but missing in Ubuntu 22.04 and 24.04.
+#The library is required by AnythingLLM, but missing in Ubuntu 22.04, 24.04, and 26.04.
 sudo apt install libfuse2
 
 cd ~/SoloSeniorWatchRobot_build

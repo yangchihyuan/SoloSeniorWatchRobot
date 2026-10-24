@@ -23,10 +23,9 @@ if(BUILD_TESTING)
   ament_lint_auto_find_test_dependencies()
 endif()
 
-# Install launch and config directories
+# Install the launch files. This package currently has no config directory.
 install(DIRECTORY
   launch
-  config
   DESTINATION share/${PROJECT_NAME}
 )
 

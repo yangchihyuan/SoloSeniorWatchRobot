@@ -23,7 +23,7 @@ struct Setting
     bool bFaceDetection = false;
     string FaceDetectionModel = "InspireFace"; // MediaPipe_Face, InspireFace
     bool bUseVisualCompass = false;
-    string WhisperModel = "$HOME/RobotNurseHelper_build/whisper.cpp/models/ggml-large-v3-turbo.bin";
+    string WhisperModel = "$HOME/SoloSeniorWatchRobot_build/whisper.cpp/models/ggml-large-v3-turbo.bin";
     string ImageSaveDirectory = "$HOME/Downloads/raw_images";
     string LanguageModel = "gemma3:1b";
     string Language = "Chinese";
@@ -32,7 +32,7 @@ struct Setting
     bool bHideCursor = true;
     string Machine = "PC"; // AGXOrin, PC
     int iTextFontSize = 48;
-    string LogDirectory = "$HOME/RobotNurseHelper/Server/logs";
+    string LogDirectory = "$HOME/SoloSeniorWatchRobot/Server/logs";
     string LogFileName = "RobotNurseHelper.log";
     string RobotModel = "ZenboJrII"; // Zenbo, ZenboJrII, Kebbi
 };

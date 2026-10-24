@@ -14,7 +14,7 @@ ThreadWhisper::ThreadWhisper()
         pcmf32_new.resize(30 * WHISPER_SAMPLE_RATE, 0.0f); // allocate a buffer for 30 seceonds
 
     string filepath(getenv("HOME"));
-    filepath += "/RobotNurseHelper_build/silero-vad/src/silero_vad/data/silero_vad.onnx";
+    filepath += "/SoloSeniorWatchRobot_build/silero-vad/src/silero_vad/data/silero_vad.onnx";
     pVad = new VadIterator(filepath); // Create the silero vad iterator
 }
 

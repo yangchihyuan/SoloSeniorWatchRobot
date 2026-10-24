@@ -263,8 +263,13 @@ target_include_directories(SoloSeniorWatchRobot PRIVATE
 target_link_libraries(SoloSeniorWatchRobot LIBWHISPER
     Qt::Core Qt::Widgets Qt::Network
     Qt::Multimedia Qt::MultimediaWidgets ${OpenCV_LIBS} portaudio LIBONNX nlohmann_json::nlohmann_json)
-ament_target_dependencies(SoloSeniorWatchRobot
-  ament_index_cpp rclcpp sensor_msgs std_msgs)
+# ROS 2 Lyrical no longer provides the legacy
+# ament_target_dependencies() CMake helper. Link the exported targets directly.
+target_link_libraries(SoloSeniorWatchRobot
+  ament_index_cpp::ament_index_cpp
+  rclcpp::rclcpp
+  sensor_msgs::sensor_msgs__rosidl_typesupport_cpp
+  std_msgs::std_msgs__rosidl_typesupport_cpp)
 
 #set the compile definition
 if(ROBOT_MODEL STREQUAL "Kebbi")
