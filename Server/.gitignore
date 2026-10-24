@@ -1,5 +1,6 @@
 build/
-mediapipe/
+# I cannot ignore the mediapipe folder because libmp is under the mediapipe/examples folder
+# mediapipe/
 Videos/
 Progress/
 Data/
