@@ -104,8 +104,9 @@ sudo apt -y install git
 #Do I still need to install zip?
 sudo apt -y install zip
 
-#install libgtk3-dev, which is used in OpenCV to show images
-sudo apt -y install libgtk3-dev 
+#install libgtk-3-dev, which is used in OpenCV to show images
+sudo apt update
+sudo apt -y install libgtk-3-dev 
 
 #create the working directory without deleting downloaded archives
 mkdir -p SoloSeniorWatchRobot_build
@@ -162,7 +163,7 @@ else
   unzip opencv_contrib4.11.zip
   cd opencv-4.11.0
   mkdir -p build && cd build
-  sudo apt install libvtk9-dev       #vtk is required to compile opencv_vis module, which is required by EmotiEffLib
+  sudo apt -y install libvtk9-dev       #vtk is required to compile opencv_vis module, which is required by EmotiEffLib
   #      -D WITH_VTK=ON \             #for emotiefflib
   #      -D BUILD_opencv_viz=ON       #for emotiefflib
   # Ubuntu 26.04.1 has ffmpeg version 8.0.1, which is not compatible with OpenCV 4.11. So, we need to disable ffmpeg in OpenCV 4.11.
