@@ -8,6 +8,22 @@
 read -p "How large is your RAM + swap (GiB)?" RAMSize
 if (( $(echo "$RAMSize < 32" | bc -l) )); then
   echo "You had better have 32G to compile the SoloSeniorWatchRobot program. Otherwise, some applications may not killed during installation. If you don't have enough RAM, enlarge your swap."
+  read -p "Do you want to enlarge your swap? [Y/n]" EnlargeSwap
+  if ! [[ "$EnlargeSwap" == "Y" || "$EnlargeSwap" == "y" ]]; then
+    read -p "Enter the new swap size (GiB):" NewSwapSize
+    # check whether the input is a valid number
+    if ! [[ "$NewSwapSize" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
+      echo "Error: '$NewSwapSize' is not a valid number. Please try again."
+      exit
+    else
+      sudo swapoff /swap.img
+      sudo rm /swap.img
+      sudo fallocate -l ${NewSwapSize}G /swap.img
+      sudo chmod 600 /swap.img
+      sudo mkswap /swap.img
+      sudo swapon /swap.img
+    fi
+  fi
   read -p "Do you want to continue? [Y/n]" Continue
   if ! [[ "$Continue" == "Y" || "$Continue" == "y" ]]; then
     exit

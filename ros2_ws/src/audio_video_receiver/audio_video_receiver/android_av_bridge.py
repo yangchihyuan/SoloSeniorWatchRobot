@@ -5,7 +5,7 @@ import rclpy
 from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from sensor_msgs.msg import CompressedImage     #sensor_msgs is from ROS2 package
-from std_msgs.msg import UInt8MultiArray
+from std_msgs.msg import UInt8MultiArray        #this is for audio data, which is a standard message type in ROS2
 from google.protobuf.message import DecodeError
 from . import RobotCommand_pb2
 
@@ -30,7 +30,7 @@ class AndroidAVBridge(Node):
             UInt8MultiArray, '/android/audio_buffer', 10)
 
         # Keep the ports used by the existing Android app unchanged.
-        self.vid_listener = self._create_listener(8895)
+        self.vid_listener = self._create_listener(8895)     #the __create_listener() method is defined below. It creates a TCP socket listener on the specified port.
         self.aud_listener = self._create_listener(8897)
         self.vid_conn = None
         self.aud_conn = None
@@ -48,10 +48,13 @@ class AndroidAVBridge(Node):
 
         #SO_REUSEADDR allows the socket to be bound to an address that is already in use, which is useful for quickly restarting the server without waiting for the OS to release the port.
         listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
         #Bind the socket to all available network interfaces on the specified port.
         listener.bind(('0.0.0.0', port))
+
         #Listen for incoming connections, with a backlog of 1 connection.
         listener.listen(1)
+        
         #Set the socket to non-blocking mode, so that accept() and recv() calls will not block the execution of the program if there are no incoming connections or data available.
         listener.setblocking(False)
         return listener
