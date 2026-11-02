@@ -464,7 +464,7 @@ git checkout v0.34.0
 # 1. Enable the Ubuntu Universe repository
 sudo apt install software-properties-common -y
 # The "universe" repository, which contains thousands of free, open-source software packages maintained by the Linux community rather than Canonical
-sudo add-apt-repository universe
+sudo add-apt-repository -y universe
 
 # 2. Download and add the official ROS 2 GPG key
 sudo apt update && sudo apt install curl -y
@@ -589,8 +589,8 @@ curl -fsSL https://cdn.anythingllm.com/latest/installer.sh -o installer.sh
 # Make the script executable
 chmod +x installer.sh
  
-# Run the script
-./installer.sh
+# Run the script. Give it a default y to answer the question.
+echo "y" | ./installer.sh
 
 
 ##############################
@@ -601,5 +601,5 @@ echo "1. Create a new workspace named 'cataract'."
 echo "2. Upload the CataractRAG.txt to cataract workspace."
 echo "3. Set the workspace LLM provider as Ollama, and set the model as gemma3:1b. If your machine has more than 16G VRAM, you can also set the model as gemma3:4b or gemma3:12b to let the RAG function have a better performance. But it will be slower to generate the first token because the model is larger."
 echo "4. Set the System Prompt as the prompt in the AnythingLLM_Setting.txt"
-echo "5. Go to the TythingLLM setting/Tools/Developer API to create a new API key."
+echo "5. Go to the AnythingLLM setting/Tools/Developer API to create a new API key."
 echo "6. Copy the API key and paste it in the Setting.json to use AnythingLLM's RAG function."
