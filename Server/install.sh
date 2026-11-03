@@ -1,15 +1,21 @@
 #!/bin/bash
+set -Ee -o pipefail
 
-#October 24, 2026
-#Install SoloSeniorWatchRobot to Ubuntu 26.04.1
+#Nov 3, 2026
 #Author: Chih-Yuan Yang
-#Project: SoloSeniorWatchRobot
+PROJECT_NAME="SoloSeniorWatchRobot"
+BUILD_DIR="$HOME/${PROJECT_NAME}_build"
 
 read -p "How large is your RAM + swap (GiB)?" RAMSize
+if ! [[ "$RAMSize" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
+  echo "Error: RAMSize must be a non-negative number."
+  exit 1
+fi
+
 if (( $(echo "$RAMSize < 32" | bc -l) )); then
-  echo "You had better have 32G to compile the SoloSeniorWatchRobot program. Otherwise, some applications may not killed during installation. If you don't have enough RAM, enlarge your swap."
+  echo "You had better have 32G to compile the $PROJECT_NAME program. Otherwise, some applications may not killed during installation. If you don't have enough RAM, enlarge your swap."
   read -p "Do you want to enlarge your swap? [Y/n]" EnlargeSwap
-  if ! [[ "$EnlargeSwap" == "Y" || "$EnlargeSwap" == "y" ]]; then
+  if [[ -z "$EnlargeSwap" || "$EnlargeSwap" =~ ^[Yy]$ ]]; then
     read -p "Enter the new swap size (GiB):" NewSwapSize
     # check whether the input is a valid number
     if ! [[ "$NewSwapSize" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
@@ -22,10 +28,13 @@ if (( $(echo "$RAMSize < 32" | bc -l) )); then
       sudo chmod 600 /swap.img
       sudo mkswap /swap.img
       sudo swapon /swap.img
+      echo "Swap size has been changed to ${NewSwapSize}G."
     fi
   fi
   read -p "Do you want to continue? [Y/n]" Continue
-  if ! [[ "$Continue" == "Y" || "$Continue" == "y" ]]; then
+  if [[ -z "$Continue" || "$Continue" =~ ^[Yy]$ ]]; then
+    echo "Continuing the installation..."
+  else
     exit
   fi
 fi
@@ -56,19 +65,24 @@ else
 fi
 
 if [ "$machine" = "PC" ]; then
-  read -p "Is your secure boot off in your motherboard's UEFI setting? [y/n]" SecureBoot
-  if ! [[ "$SecureBoot" == "Y" || "$SecureBoot" == "y" ]]; then
-    echo "This install.sh script cannot fully automatically install a Nvidia GPU driver because your UEFI secure boot is on. If you want to use this instal.sh to fully automatically install a NVidia GPU driver, you need to set your UEFI secure boot off. Otherwise, you need to install the Nvidia GPU driver manually."
-    read -p "Do you want to stop the install.sh? [y/n]" StopInstall
-    if ! [[ "$StopInstall" == "Y" || "$StopInstall" == "y" ]]; then
-      echo "You can continue to install the SoloSeniorWatchRobot, but you need to install the Nvidia GPU driver manually after the installation."
-    else
-      echo "You can run this install.sh again after you set your UEFI secure boot off."
-      exit  #stop the installation script
-    fi  
-  fi
+#  read -p "Is your secure boot off in your motherboard's UEFI setting? [y/n]" SecureBoot
+#  if [[ -z "$SecureBoot" || "$SecureBoot" =~ ^[Nn]$ ]]; then
+#    echo "This install.sh script cannot fully automatically install a Nvidia GPU driver because your UEFI secure boot is on. If you want to use this instal.sh to fully automatically install a NVidia GPU driver, you need to set your UEFI secure boot off. Otherwise, you need to install the Nvidia GPU driver manually."
+#    read -p "Do you want to stop the install.sh? [y/n]" StopInstall
+#    if [[ -z "$StopInstall" || "$StopInstall" =~ ^[Nn]$ ]]; then
+#      echo "You can continue to install the $PROJECT_NAME, but you need to install the Nvidia GPU driver manually after the installation."
+#    else
+#      echo "You can run this install.sh again after you set your UEFI secure boot off."
+#      exit  #stop the installation script
+#    fi  
+#  fi
 
-  read -p "How large is your VRAM size in GB?" VRAMSize
+  read -r -p "How large is your VRAM size in GB? " VRAMSize
+
+  if ! [[ "$VRAMSize" =~ ^[0-9]+$ ]]; then
+    echo "Error: VRAMSize must be a non-negative integer."
+    exit 1
+  fi
 fi
 
 read -p "What is the robot model you use? [Zenbo/Kebbi/ZenboJrII]" RobotModel
@@ -109,7 +123,7 @@ sudo apt update
 sudo apt -y install libgtk-3-dev 
 
 #create the working directory without deleting downloaded archives
-mkdir -p SoloSeniorWatchRobot_build
+mkdir -p "$BUILD_DIR"
 
 #sudo apt -y install cmake
 
@@ -120,7 +134,7 @@ elif [ "$machine" = "AGXOrin" ]; then
   #Snap's cmake does not work on AGX Orin because the the AGX Orin Ubuntu does not a complete SELinux system.
   #The SELinux service is initialzed, but required componenets are missing, which leads to a failure of snap's sandbox.
   #sudo snap install cmake --classic   # version 4.2.2 will be installed
-  cd ~/SoloSeniorWatchRobot_build
+  cd ~/"$BUILD_DIR"
   # Download the official Linux installer script
   wget https://github.com/Kitware/CMake/releases/download/v3.31.3/cmake-3.31.3-linux-aarch64.sh
 
@@ -133,7 +147,7 @@ fi
 
 #install OpenCV 4.11, which is required by MediaPipe
 #install OpenCV 4.11 first, because it requires to key in sudo password again
-cd ~/SoloSeniorWatchRobot_build
+cd ~/"$BUILD_DIR"
 
 InstalledOpenCVVersion=""
 if command -v opencv_version >/dev/null 2>&1; then
@@ -159,8 +173,10 @@ else
       wget -O opencv_contrib4.11.zip https://github.com/opencv/opencv_contrib/archive/refs/tags/4.11.0.zip
     fi
   fi
-  unzip opencv4.11.zip
-  unzip opencv_contrib4.11.zip
+
+  #the unzip option -n will skip existing files without prompting. This is useful if you want to avoid overwriting files that have already been extracted.
+  unzip -n opencv4.11.zip
+  unzip -n opencv_contrib4.11.zip
   cd opencv-4.11.0
   mkdir -p build && cd build
   sudo apt -y install libvtk9-dev       #vtk is required to compile opencv_vis module, which is required by EmotiEffLib
@@ -181,10 +197,10 @@ fi
 #intall protobuf 3.19.1
 #For Ubuntu 26.04.1, the default protobuf version is 3.21.12.
 #I don't know if 3.21.12 is compatible with MediaPipe v0.10.22. So, I install protobuf 3.19.1.
-cd ~/SoloSeniorWatchRobot_build
+cd ~/"$BUILD_DIR"
 wget -O protobuf-all-3.19.1.zip https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-all-3.19.1.zip
-unzip protobuf-all-3.19.1.zip
-cd ~/SoloSeniorWatchRobot_build/protobuf-3.19.1
+unzip -n protobuf-all-3.19.1.zip
+cd ~/"$BUILD_DIR"/protobuf-3.19.1
 ./configure
 #if I use "make -j $(nproc)", there is a peak of memory usage, which exceeds the RAM+SWAP size on some laptops.
 make -j 10    #prevent memory peak usage
@@ -205,15 +221,15 @@ git checkout v0.10.22
 
 #download our files
 cd ~
-if [ -d "SoloSeniorWatchRobot" ]; then
-    rm -rf SoloSeniorWatchRobot
+if [ -d "$PROJECT_NAME" ]; then
+    rm -rf "$PROJECT_NAME"
 fi
-git clone https://github.com/yangchihyuan/SoloSeniorWatchRobot.git
+git clone "https://github.com/yangchihyuan/${PROJECT_NAME}.git"
 #copy our code to the mediapipe folder
-cp -r ~/SoloSeniorWatchRobot/Server/mediapipe_addition/* ~/mediapipe/
+cp -r ~/"$PROJECT_NAME"/Server/mediapipe_addition/* ~/mediapipe/
 
 #Install bazelisk
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 #this command only works for amd64 architecture
 if [ "$machine" = "PC" ]; then
   wget -O bazelisk-amd64.deb https://github.com/bazelbuild/bazelisk/releases/download/v1.25.0/bazelisk-amd64.deb
@@ -267,7 +283,7 @@ sudo apt install -y gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer
 
 #PortAudio
 #We use it to play voice on the server transmitted from the Android app and received from the robot's microphone. There is no package made for the Ubuntu system, and we need to compile it from downloaded source files, which are available on its GitHub page
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 if [ -d "portaudio" ]; then
     rm -rf portaudio
 fi
@@ -276,7 +292,7 @@ git clone https://github.com/PortAudio/portaudio.git
 #There is an instruction page teaching how to compile and install PortAudio (Link) However, as the page claims it is not reviewed, we modified its commands to
 
 sudo apt-get -y install libasound2-dev
-cd ~/SoloSeniorWatchRobot_build/portaudio
+cd "$BUILD_DIR/portaudio"
 ./configure
 make -j $(nproc)
 sudo make install
@@ -288,12 +304,12 @@ sudo ldconfig
 #It is a voice-to-text library and we utilize it on our server-side program to quickly generate sentences spoken by an operator, which will be sent to the robot to speak out. There is no package make for the Ubuntu system, and we need to compile it from it source file downloaded from its GitHub repository
 
 #Debug info 25/3/18,whisper.cpp v1.7.5 changes its install commands
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 if [ -d "whisper.cpp" ]; then
     rm -rf whisper.cpp
 fi
 git clone https://github.com/ggerganov/whisper.cpp.git
-cd ~/SoloSeniorWatchRobot_build/whisper.cpp
+cd "$BUILD_DIR/whisper.cpp"
 git checkout v1.7.5
 if ((VRAMSize==0)); then
   bash ./models/download-ggml-model.sh tiny
@@ -318,22 +334,27 @@ else
 fi
 
 #onnx
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 if [ "$machine" = "PC" ]; then
-  wget -O onnxruntime-linux-x64-gpu-1.22.0.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-gpu-1.22.0.tgz
-  tar -xvzf onnxruntime-linux-x64-gpu-1.22.0.tgz
+  if ((VRAMSize > 0)); then
+    wget -O onnxruntime-linux-x64-gpu-1.22.0.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-gpu-1.22.0.tgz
+    tar -xvzf onnxruntime-linux-x64-gpu-1.22.0.tgz
+  else
+    wget -O onnxruntime-linux-x64-1.22.0.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-x64-1.22.0.tgz
+    tar -xvzf onnxruntime-linux-x64-1.22.0.tgz
+  fi  
 elif [ "$machine" = "AGXOrin" ]; then
   wget -O onnxruntime-linux-aarch64-1.22.0.tgz https://github.com/microsoft/onnxruntime/releases/download/v1.22.0/onnxruntime-linux-aarch64-1.22.0.tgz
   tar -xvzf onnxruntime-linux-aarch64-1.22.0.tgz
 fi
 
 #silero-v
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 git clone https://github.com/snakers4/silero-vad.git
 
 #The EmotiEffLib uses a 3rd party library 3rdparty/xtl/CMakeLists.txt, which requires CMake 3.29 or above. Ubuntu 26.04.1 has CMake 4.2.2, which is enough for EmotiEffLib. But Ubuntu 24.04 has CMake 3.22.1, which is not enough for EmotiEffLib. So, we need to install CMake 4.2.2 on Ubuntu 24.04.
 if [ "$VERSION_ID" == "26.04" ]; then
-    echo "You are running Ubuntu 26.04. You have CMake 4.2.2, which is enough for EmotiEffLib. You can continue to install the SoloSeniorWatchRobot."
+    echo "You are running Ubuntu 26.04. You have CMake 4.2.2, which is enough for EmotiEffLib. You can continue to install the $PROJECT_NAME."
 elif [ "$VERSION_ID" == "24.04" ]; then
     sudo apt update
     sudo apt install software-properties-common wget apt-transport-https ca-certificates gnupg -y
@@ -349,38 +370,48 @@ else
 fi
 
 #EmotiEffLib needs libopenblas-dev
-sudo apt install libopenblas-dev
+sudo apt install libopenblas-dev -y
 
 #EmotiEffLib
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 git clone https://github.com/sb-ai-lab/EmotiEffLib.git
 cd EmotiEffLib
 git submodule update --init --recursive
 cd emotieffcpplib
-mkdir build && cd build
+mkdir -p build
+cd build
 #I am not sure if this command works. Check it later.
-#Their CMakeLists.txt file needs /home/chihyuan/SoloSeniorWatchRobot_build/onnxruntime-linux-x64-gpu-1.22.0/lib64, but there is no lib64 folder in onnxruntime-linux-x64-gpu-1.22.0. There is only a lib folder.
+#Their CMakeLists.txt file needs onnxruntime lib folder, but there is no lib64 folder.
 #So, I create a symbolic link lib64 to lib
 if [ "$machine" = "PC" ]; then
-  cd ~/SoloSeniorWatchRobot_build/onnxruntime-linux-x64-gpu-1.22.0
-  ln -s lib lib64
-  cd ~/SoloSeniorWatchRobot_build/EmotiEffLib/emotieffcpplib/build
-  cmake .. -DWITH_ONNX=~/SoloSeniorWatchRobot_build/onnxruntime-linux-x64-gpu-1.22.0 -DBUILD_SHARED_LIBS=ON
-  make -j$(nproc)
-  #The .so files are in ~/SoloSeniorWatchRobot_build/EmotiEffLib/emotieffcpplib/build/lib
+  if ((VRAMSize==0)); then
+    cd "$BUILD_DIR/onnxruntime-linux-x64-1.22.0"
+    ln -sfn lib lib64
+    cd "$BUILD_DIR/EmotiEffLib/emotieffcpplib/build"
+    cmake .. -DWITH_ONNX="$BUILD_DIR/onnxruntime-linux-x64-1.22.0" -DBUILD_SHARED_LIBS=ON
+    make -j$(nproc)
+    #The .so files are in "$BUILD_DIR/EmotiEffLib/emotieffcpplib/build/lib"
+  else
+    cd "$BUILD_DIR/onnxruntime-linux-x64-gpu-1.22.0"
+    ln -sfn lib lib64
+    cd "$BUILD_DIR/EmotiEffLib/emotieffcpplib/build"
+    cmake .. -DWITH_ONNX="$BUILD_DIR/onnxruntime-linux-x64-gpu-1.22.0" -DBUILD_SHARED_LIBS=ON
+    make -j$(nproc)
+    #The .so files are in "$BUILD_DIR/EmotiEffLib/emotieffcpplib/build/lib"
+  fi
 elif [ "$machine" = "AGXOrin" ]; then
-  cd ~/SoloSeniorWatchRobot_build/onnxruntime-linux-aarch64-1.22.0
-  ln -s lib lib64
-  cd ~/SoloSeniorWatchRobot_build/EmotiEffLib/emotieffcpplib/build
-  cmake .. -DWITH_ONNX=~/SoloSeniorWatchRobot_build/onnxruntime-linux-aarch64-1.22.0 -DBUILD_SHARED_LIBS=ON
+  cd "$BUILD_DIR/onnxruntime-linux-aarch64-1.22.0"
+  ln -sfn lib lib64
+  cd "$BUILD_DIR/EmotiEffLib/emotieffcpplib/build"
+  cmake .. -DWITH_ONNX="$BUILD_DIR/onnxruntime-linux-aarch64-1.22.0" -DBUILD_SHARED_LIBS=ON
   make -j$(nproc)
-  #The .so files are in ~/SoloSeniorWatchRobot_build/EmotiEffLib/emotieffcpplib/build/lib
+  #The .so files are in "$BUILD_DIR/EmotiEffLib/emotieffcpplib/build/lib"
 fi
 
 #ollama
 if [ "$machine" = "PC" ]; then
   sudo snap install curl
-  cd ~/SoloSeniorWatchRobot_build/
+  cd "$BUILD_DIR/"
   #This command seems unnecenssary is from https://ollama.com/docs/installation
   curl.snap-acked        #ollama changed its installation script. There is a text explanation in the script. It only accepts Snap-curl and we need to use this command first to prevent a warning message
   curl -fsSL https://ollama.com/install.sh | sh
@@ -400,9 +431,9 @@ fi
 
 
 #ollama-hpp
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 git clone https://github.com/jmont-dev/ollama-hpp.git
-cd ~/SoloSeniorWatchRobot_build/ollama-hpp
+cd "$BUILD_DIR/ollama-hpp"
 git checkout v0.9.5
 #2026/10/24. The latest version is still 0.9.7.
 #The ollama.hpp vesion 0.9.7 has a conclict with GCC 13 std::hash (GCC is the default compiler package on Ubuntu 24.04).
@@ -415,7 +446,7 @@ sed -i 's|this->cli->Post("/api/chat", request_string, "application/json", strea
 #dlib library for face recognition
 #The precompiled libdlib-dev does not work. It enables the DLIB_NO_GUI_SUPPORT
 #sudo apt -y install libdlib-dev       #Ubuntu 24.04 has dlib version 19.24.0-1 available in its repository
-#cd ~/SoloSeniorWatchRobot_build/
+#cd "$BUILD_DIR/"
 #This command will go wrong in the future because new versions will changes its download URL
 #curl https://dlib.net/files/dlib-20.0.tar.bz2 --output dlib-20.0.tar.bz2
 #wget -O dlib-20.0.tar.bz2 https://dlib.net/files/dlib-20.0.tar.bz2
@@ -424,11 +455,11 @@ sed -i 's|this->cli->Post("/api/chat", request_string, "application/json", strea
 #InspireFace (The library has not been tested on AGX Orin, but it should work because it is based on OpenCV and ONNX Runtime, which are both tested on AGX Orin.
 #I need to test it on AGX Orin later. If there is a problem, I will try to fix it and update the code.
 #if [ "$machine" = "PC" ]; then
-  cd ~/SoloSeniorWatchRobot_build/
+  cd "$BUILD_DIR/"
   git clone https://github.com/HyperInspire/InspireFace.git
-  checkout v1.2.3
-  # Must enter this directory
   cd InspireFace
+  git checkout v1.2.3
+  # Must enter this directory
   # Clone the repository and pull submodules
   git clone --recurse-submodules https://github.com/tunmx/inspireface-3rdparty.git 3rdparty
 
@@ -455,7 +486,7 @@ sed -i 's|this->cli->Post("/api/chat", request_string, "application/json", strea
 #fi
 
 #cpp-httplib
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 git clone https://github.com/yhirose/cpp-httplib.git
 cd cpp-httplib
 git checkout v0.34.0
@@ -485,14 +516,14 @@ grep -qxF "source /opt/ros/lyrical/setup.bash" ~/.bashrc || echo "source /opt/ro
 sudo apt install python3-colcon-common-extensions build-essential -y
 
 #Build our own program. We no longer need the program because the program has been moved to the ros2 system. 
-cd ~/SoloSeniorWatchRobot/Server
-./build_project.sh $RobotModel
+cd ~/"$PROJECT_NAME/Server"
+./build_project.sh "$RobotModel" "$VRAMSize"
 #copy the required mediapipe files to Server
 cp -r ~/mediapipe/bazel-bin/mediapipe/examples/desktop/libmp/libmp_gpu.so.runfiles/mediapipe/mediapipe .
 if [ -d "temp" ]; then
     rm -rf temp
 fi
-mkdir temp
+mkdir -p temp
 # this file mediapipe/modules/hand_landmark/handedness.txt is required to run holistic trackiing
 find ~/mediapipe/mediapipe -type f \( -name "*.txt" \) -exec cp --parents {} temp \;
 cp -r temp/home/$USER/mediapipe/mediapipe .
@@ -501,44 +532,44 @@ rm -rf temp
 #copy the file to prevent Nvidia GPU from being unavailable after laptop suspends
 #Does this problem remain in Ubuntu 26.04? I need to test it later.
 #if [ "$machine" = "PC" ] && [[ "$GPUModel" == "3050laptop" || "$GPUModel" == "4070laptop" ]]; then
-#  sudo cp ~/SoloSeniorWatchRobot/Server/nvidia-power-management.conf /etc/modprobe.d/
+#  sudo cp ~/$PROJECT_NAME/Server/nvidia-power-management.conf /etc/modprobe.d/
 #  sudo update-initramfs -u
 #fi
 
 #Dowload media files from internet
-cd ~/SoloSeniorWatchRobot_build
-#wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1n5GuS6kqABCq5hGLOToFV_11V9mmEHZR' -O SoloSeniorWatchRobot.zip
+cd "$BUILD_DIR"
+#wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1n5GuS6kqABCq5hGLOToFV_11V9mmEHZR' -O $PROJECT_NAME.zip
 #for large files (>100MB), Google Drive will block the download and ask for a confirmation. Press F12 when you use your brower to download the file. In the Network tab, your will see the authentic url.
 #This link fails, why?
-#wget --no-check-certificate 'https://drive.usercontent.google.com/download?id=1zVMH3INErwSuXJ1TF2gfPe2O0HVLu381&export=download&authuser=0&confirm=t&uuid=d4298704-bde8-444d-9ca4-0e36402c1e1f&at=APcXIO3sT6c9dZSljEclJVnWV_OW%3A1770877164167' -O SoloSeniorWatchRobot_MediaFiles.zip
-#unzip SoloSeniorWatchRobot_MediaFiles.zip -d SoloSeniorWatchRobot_MediaFiles
-#cp -r SoloSeniorWatchRobot_MediaFiles/SoloSeniorWatchRobot/* ~/SoloSeniorWatchRobot
+#wget --no-check-certificate 'https://drive.usercontent.google.com/download?id=1zVMH3INErwSuXJ1TF2gfPe2O0HVLu381&export=download&authuser=0&confirm=t&uuid=d4298704-bde8-444d-9ca4-0e36402c1e1f&at=APcXIO3sT6c9dZSljEclJVnWV_OW%3A1770877164167' -O ECICR_MediaFiles.zip
+#unzip ECICR_MediaFiles.zip -d ECICR_MediaFiles
+#cp -r ECICR_MediaFiles/$PROJECT_NAME/* ~/$PROJECT_NAME
 
 
 #for play video and audio in Qt Multimedia
 #Ubuntu 26.04 removed the GTK2 package libcanberra-gtk-module
 if [ "$VERSION_ID" == "26.04" ]; then
-  sudo apt install  libcanberra-gtk3-module   #for system sound support in Qt Multimedia
+  sudo apt install -y libcanberra-gtk3-module   #for system sound support in Qt Multimedia
 elif [ "$VERSION_ID" == "24.04" ]; then
-  sudo apt install libcanberra-gtk-module libcanberra-gtk3-module   #for system sound support in Qt Multimedia
+  sudo apt install -y libcanberra-gtk-module libcanberra-gtk3-module   #for system sound support in Qt Multimedia
 else
   if [ "$machine" = "AGXOrin" ]; then
-    sudo apt install gstreamer1.0-tools gstreamer1.0-nice gstreamer1.0-qt5 gstreamer1.0-plugins-base
-    sudo apt install gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
-    sudo apt install gstreamer1.0-libav
+    sudo apt install -y gstreamer1.0-tools gstreamer1.0-nice gstreamer1.0-qt5 gstreamer1.0-plugins-base
+    sudo apt install -y gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+    sudo apt install -y gstreamer1.0-libav
   fi 
 fi
 
 #install the desktop file to let users launch the program by clicking the icon
 #copy the icon file to /usr/share/pixmaps, which is a standard directory for storing icons in Linux systems. This allows the system to find and display the icon properly when you launch the program from the application menu.
 #We no longer need the program because the program has been moved to the ros2 system.
-sudo cp ~/SoloSeniorWatchRobot/Server/SoloSeniorWatchRobot.png /usr/share/pixmaps/SoloSeniorWatchRobot.png
+sudo cp ~/"$PROJECT_NAME/Server/$PROJECT_NAME.png" /usr/share/pixmaps/"$PROJECT_NAME.png"
 mkdir -p ~/.local/share/applications/
 
-#replace the @SERVER_DIR@ in SoloSeniorWatchRobot.desktop with the actual path of the Server directory, and copy it to ~/.local/share/applications/
-sed "s|@SERVER_DIR@|$HOME/SoloSeniorWatchRobot/Server|g" \
-  SoloSeniorWatchRobot.desktop \
-  > ~/.local/share/applications/SoloSeniorWatchRobot.desktop
+#replace the @SERVER_DIR@ in ${PROJECT_NAME}.desktop with the actual path of the Server directory, and copy it to ~/.local/share/applications/
+sed "s|@SERVER_DIR@|$HOME/$PROJECT_NAME/Server|g" \
+  "${PROJECT_NAME}.desktop" \
+  > ~/.local/share/applications/"${PROJECT_NAME}.desktop"
 
 #update desktop database
 update-desktop-database ~/.local/share/applications/
@@ -547,7 +578,7 @@ update-desktop-database ~/.local/share/applications/
 
 #Yolov11-pose needs CuDNN to run its onnx file. It is only need to install in PC. The AGX Orin has its own GPU acceleration library, which is compatible with CuDNN, so we don't need to install CuDNN on AGX Orin.
 if [ "$machine" = "PC" ]; then
-  cd ~/SoloSeniorWatchRobot_build
+  cd "$BUILD_DIR"
   # Download Ubuntu 24.04 spcific keyring
   wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
   # Install keyring
@@ -571,7 +602,7 @@ else
   echo "Error: ROS 2 Lyrical is not installed at /opt/ros/lyrical."
   exit 1
 fi
-cd ~/SoloSeniorWatchRobot/ros2_ws
+cd ~/"$PROJECT_NAME/ros2_ws"
 colcon build --symlink-install \
   --packages-select audio_video_receiver server_gui my_robot_bringup
 
@@ -582,7 +613,7 @@ colcon build --symlink-install \
 #The library is required by AnythingLLM, but missing in Ubuntu 22.04, 24.04, and 26.04.
 sudo apt install libfuse2
 
-cd ~/SoloSeniorWatchRobot_build
+cd "$BUILD_DIR"
 # Download the installer script to wherever you want to run it from
 curl -fsSL https://cdn.anythingllm.com/latest/installer.sh -o installer.sh
  
