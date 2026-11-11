@@ -1,7 +1,7 @@
 #!/bin/bash
 set -Ee -o pipefail
 
-#Nov 3, 2026
+#Nov 11, 2026
 #Author: Chih-Yuan Yang
 PROJECT_NAME="SoloSeniorWatchRobot"
 BUILD_DIR="$HOME/${PROJECT_NAME}_build"
@@ -77,11 +77,18 @@ if [ "$machine" = "PC" ]; then
 #    fi  
 #  fi
 
-  read -r -p "How large is your VRAM size in GB? " VRAMSize
+  read -r -p "Do you have an Nvidia GPU? [Y/n]" HaveNvidiaGPU
+  if [[ -z "$HaveNvidiaGPU" || "$HaveNvidiaGPU" =~ ^[Yy]$ ]]; then
+    read -r -p "What is your GPU model? [3050/4050/4060/4070/4080/4090/5050/5080]" GPUModel
+    GPUModelFirstTwoDigits="${GPUModel:0:2}"
+    read -r -p "How large is your VRAM size in GB? " VRAMSize
 
-  if ! [[ "$VRAMSize" =~ ^[0-9]+$ ]]; then
-    echo "Error: VRAMSize must be a non-negative integer."
-    exit 1
+    if ! [[ "$VRAMSize" =~ ^[0-9]+$ ]]; then
+      echo "Error: VRAMSize must be a non-negative integer."
+      exit 1
+    fi
+  else
+    VRAMSize=0
   fi
 fi
 
@@ -109,7 +116,8 @@ fi
 
 
 #Install the compiler
-sudo apt -y install build-essential
+sudo apt -y install build-essential     #Ubuntu 26.04.1 ships gcc15, which is not supported by nvcc 12.9
+#sudo apt -y install gcc-13 g++-13		#gcc13 and gcc14 are supported by nvcc 12.9
 
 #install git
 sudo apt -y install git
@@ -134,7 +142,7 @@ elif [ "$machine" = "AGXOrin" ]; then
   #Snap's cmake does not work on AGX Orin because the the AGX Orin Ubuntu does not a complete SELinux system.
   #The SELinux service is initialzed, but required componenets are missing, which leads to a failure of snap's sandbox.
   #sudo snap install cmake --classic   # version 4.2.2 will be installed
-  cd ~/"$BUILD_DIR"
+  cd "$BUILD_DIR"
   # Download the official Linux installer script
   wget https://github.com/Kitware/CMake/releases/download/v3.31.3/cmake-3.31.3-linux-aarch64.sh
 
@@ -147,7 +155,7 @@ fi
 
 #install OpenCV 4.11, which is required by MediaPipe
 #install OpenCV 4.11 first, because it requires to key in sudo password again
-cd ~/"$BUILD_DIR"
+cd "$BUILD_DIR"
 
 InstalledOpenCVVersion=""
 if command -v opencv_version >/dev/null 2>&1; then
@@ -197,10 +205,10 @@ fi
 #intall protobuf 3.19.1
 #For Ubuntu 26.04.1, the default protobuf version is 3.21.12.
 #I don't know if 3.21.12 is compatible with MediaPipe v0.10.22. So, I install protobuf 3.19.1.
-cd ~/"$BUILD_DIR"
+cd "$BUILD_DIR"
 wget -O protobuf-all-3.19.1.zip https://github.com/protocolbuffers/protobuf/releases/download/v3.19.1/protobuf-all-3.19.1.zip
 unzip -n protobuf-all-3.19.1.zip
-cd ~/"$BUILD_DIR"/protobuf-3.19.1
+cd "$BUILD_DIR"/protobuf-3.19.1
 ./configure
 #if I use "make -j $(nproc)", there is a peak of memory usage, which exceeds the RAM+SWAP size on some laptops.
 make -j 10    #prevent memory peak usage
@@ -311,14 +319,47 @@ fi
 git clone https://github.com/ggerganov/whisper.cpp.git
 cd "$BUILD_DIR/whisper.cpp"
 git checkout v1.7.5
+#Download the tiny model first. If the user has enough VRAM, we will download a larger model later.
+bash ./models/download-ggml-model.sh tiny
 if ((VRAMSize==0)); then
-  bash ./models/download-ggml-model.sh tiny
+  USE_EXTERNAL_GPU=OFF  #no GPU
   cmake -B build
   cmake --build build -j10 --config Release
 else
+  USE_EXTERNAL_GPU=ON  #Use external GPU
   if [ "$machine" = "PC" ]; then
-    sudo apt -y install nvidia-cuda-toolkit
+    if [[ "$GPUModelFirstTwoDigits" == "50" ]]; then
+      wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2604/x86_64/cuda-keyring_1.1-1_all.deb
+      sudo dpkg -i cuda-keyring_1.1-1_all.deb
+      sudo apt-get update
+      sudo apt-get -y install cuda-toolkit-13-3
+      echo 'export PATH=/usr/local/cuda-13.3/bin:$PATH' >> ~/.bashrc
+      echo 'export LD_LIBRARY_PATH=/usr/local/cuda-13.3/lib64:$LD_LIBRARY_PATH' >> ~/.bashrc
+
+      CUDA_LINK="/usr/local/cuda"
+
+      #If it is a upgrade from a previous CUDA version, we need to remove the existing symbolic link and create a new one.
+      if [ -e "$CUDA_LINK" ] || [ -L "$CUDA_LINK" ]; then
+        echo "Existing symbolic link: $(readlink "$CUDA_LINK")"
+        sudo rm "$CUDA_LINK"
+      fi
+      sudo ln -s /usr/local/cuda-13.3 "$CUDA_LINK"
+
+      # Select the CUDA 13.3 compiler in this installer shell. This matters
+      # when /usr/bin/nvcc belongs to an older toolkit (for example 12.4).
+      export CUDA_HOME=/usr/local/cuda-13.3
+      export PATH="$CUDA_HOME/bin:$PATH"
+      export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+      export CUDACXX="$CUDA_HOME/bin/nvcc"
+
+      source ~/.bashrc
+      "$CUDACXX" --version
+    else
+      #The Ubuntu 26.04.1 has nvidia-cuda-toolkit 12.5, which does not support RTX 5000 series GPUs and 
+      sudo apt -y install nvidia-cuda-toolkit
+    fi
   fi
+
   if ((VRAMSize==2)); then
     bash ./models/download-ggml-model.sh small
   else
@@ -326,10 +367,26 @@ else
   fi
   if [ "$machine" = "AGXOrin" ]; then
     #set up the ncvv path
-    export PATH=/usr/local/cuda/bin:$PATH
-    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH  
+    export CUDA_HOME=/usr/local/cuda
+    export PATH="$CUDA_HOME/bin:$PATH"
+    export LD_LIBRARY_PATH="$CUDA_HOME/lib64:${LD_LIBRARY_PATH:-}"
+    export CUDACXX="$CUDA_HOME/bin/nvcc"
   fi
-  cmake -B build -DGGML_CUDA=1
+  # Reconfigure with the selected compiler if this build directory was
+  # previously configured with another nvcc.
+  CUDA_CMAKE_ARGS=()
+  if [[ -n "${CUDACXX:-}" ]]; then
+    if [[ ! -x "$CUDACXX" ]]; then
+      echo "Error: CUDA compiler is not executable: $CUDACXX" >&2
+      exit 1
+    fi
+    echo "Using CUDA compiler: $CUDACXX"
+    echo "Resolved CUDA compiler: $(readlink -f "$CUDACXX")"
+    "$CUDACXX" --version
+    CUDA_CMAKE_ARGS+=("-DCMAKE_CUDA_COMPILER:FILEPATH=$CUDACXX")
+  fi
+  export NVCC_APPEND_FLAGS='-allow-unsupported-compiler'
+  cmake -S . -B build -DGGML_CUDA=1 "${CUDA_CMAKE_ARGS[@]}"
   cmake --build build -j10 --config Release    #Don't use -j, there are 20 cores in my laptop, which will cause a peak memory usage
 fi
 
@@ -348,8 +405,12 @@ elif [ "$machine" = "AGXOrin" ]; then
   tar -xvzf onnxruntime-linux-aarch64-1.22.0.tgz
 fi
 
-#silero-v
+#silero-vad
 cd "$BUILD_DIR"
+#we need to remove it first otherwise the git clone command will fail because the folder already exists.
+if [ -d "silero-vad" ]; then
+    rm -rf silero-vad
+fi
 git clone https://github.com/snakers4/silero-vad.git
 
 #The EmotiEffLib uses a 3rd party library 3rdparty/xtl/CMakeLists.txt, which requires CMake 3.29 or above. Ubuntu 26.04.1 has CMake 4.2.2, which is enough for EmotiEffLib. But Ubuntu 24.04 has CMake 3.22.1, which is not enough for EmotiEffLib. So, we need to install CMake 4.2.2 on Ubuntu 24.04.
@@ -374,6 +435,10 @@ sudo apt install libopenblas-dev -y
 
 #EmotiEffLib
 cd "$BUILD_DIR"
+#we need to remove it first otherwise the git clone command will fail because the folder already exists.
+if [ -d "EmotiEffLib" ]; then
+    rm -rf EmotiEffLib
+fi
 git clone https://github.com/sb-ai-lab/EmotiEffLib.git
 cd EmotiEffLib
 git submodule update --init --recursive
@@ -432,6 +497,9 @@ fi
 
 #ollama-hpp
 cd "$BUILD_DIR"
+if [ -d "ollama-hpp" ]; then
+    rm -rf ollama-hpp
+fi
 git clone https://github.com/jmont-dev/ollama-hpp.git
 cd "$BUILD_DIR/ollama-hpp"
 git checkout v0.9.5
@@ -456,6 +524,9 @@ sed -i 's|this->cli->Post("/api/chat", request_string, "application/json", strea
 #I need to test it on AGX Orin later. If there is a problem, I will try to fix it and update the code.
 #if [ "$machine" = "PC" ]; then
   cd "$BUILD_DIR/"
+  if [ -d "InspireFace" ]; then
+      rm -rf InspireFace
+  fi
   git clone https://github.com/HyperInspire/InspireFace.git
   cd InspireFace
   git checkout v1.2.3
@@ -487,6 +558,9 @@ sed -i 's|this->cli->Post("/api/chat", request_string, "application/json", strea
 
 #cpp-httplib
 cd "$BUILD_DIR"
+if [ -d "cpp-httplib" ]; then
+    rm -rf cpp-httplib
+fi
 git clone https://github.com/yhirose/cpp-httplib.git
 cd cpp-httplib
 git checkout v0.34.0
@@ -516,8 +590,10 @@ grep -qxF "source /opt/ros/lyrical/setup.bash" ~/.bashrc || echo "source /opt/ro
 sudo apt install python3-colcon-common-extensions build-essential -y
 
 #Build our own program. We no longer need the program because the program has been moved to the ros2 system. 
-cd ~/"$PROJECT_NAME/Server"
-./build_project.sh "$RobotModel" "$VRAMSize"
+#We no longer need it because now we build the ROS 2
+#cd ~/"$PROJECT_NAME/Server"
+#./build_project.sh "$RobotModel" "$VRAMSize"
+
 #copy the required mediapipe files to Server
 cp -r ~/mediapipe/bazel-bin/mediapipe/examples/desktop/libmp/libmp_gpu.so.runfiles/mediapipe/mediapipe .
 if [ -d "temp" ]; then
@@ -568,7 +644,7 @@ mkdir -p ~/.local/share/applications/
 
 #replace the @SERVER_DIR@ in ${PROJECT_NAME}.desktop with the actual path of the Server directory, and copy it to ~/.local/share/applications/
 sed "s|@SERVER_DIR@|$HOME/$PROJECT_NAME/Server|g" \
-  "${PROJECT_NAME}.desktop" \
+  "$HOME/$PROJECT_NAME/Server/${PROJECT_NAME}.desktop" \
   > ~/.local/share/applications/"${PROJECT_NAME}.desktop"
 
 #update desktop database
@@ -577,18 +653,25 @@ update-desktop-database ~/.local/share/applications/
 #you need to logout and login again to let the desktop file work. After that, you can launch the program by clicking the icon "Robot Nurse Helper" on your desktop or application menu.
 
 #Yolov11-pose needs CuDNN to run its onnx file. It is only need to install in PC. The AGX Orin has its own GPU acceleration library, which is compatible with CuDNN, so we don't need to install CuDNN on AGX Orin.
+#I need to update here because we no longer use Ubuntu 24.04. The keyring becomes different.
+#I have not figure it out.
 if [ "$machine" = "PC" ]; then
   cd "$BUILD_DIR"
   # Download Ubuntu 24.04 spcific keyring
-  wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+  # I did it already. I don't need to do it again
+  # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
   # Install keyring
-  sudo dpkg -i cuda-keyring_1.1-1_all.deb
+  # sudo dpkg -i cuda-keyring_1.1-1_all.deb
   # update package list
-  sudo apt-get update
+  # sudo apt-get update
   # install runtime library for YOLOv11-pose
-  sudo apt-get install libcudnn9-cuda-12
-  sudo ldconfig
-  ls -l /usr/lib/x86_64-linux-gnu/libcudnn.so.9
+
+  #Here is a problem. If my PC has no GPU. How to run CuDNN?
+  if [ "$HaveNvidiaGPU" = "y" ] || [ "$HaveNvidiaGPU" = "Y" ]; then
+    sudo apt-get install libcudnn9-cuda-12
+    sudo ldconfig
+    ls -l /usr/lib/x86_64-linux-gnu/libcudnn.so.9
+  fi
 fi
 
 #For the audio_video_receiver program, we need to install python3-protobuf to let the program run properly. The protobuf version installed by the command "sudo apt install libprotobuf-dev" is 3.21.12, which is not compatible with the protobuf version used in the audio_video_receiver program. So, we need to install python3-protobuf to let the program run properly.
@@ -604,8 +687,10 @@ else
 fi
 cd ~/"$PROJECT_NAME/ros2_ws"
 colcon build --symlink-install \
-  --packages-select audio_video_receiver server_gui my_robot_bringup
-
+  --packages-select audio_video_receiver server_gui my_robot_bringup \
+  --cmake-args \
+    -DROBOT_MODEL="$RobotModel" \
+    -DUSE_EXTERNAL_GPU="$USE_EXTERNAL_GPU"
 
 ##############################
 #install AnythingLLM for RAG
