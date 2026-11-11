@@ -1,16 +1,37 @@
 #!/bin/bash
+#Stop the script if any command fails and print the error message
 set -Ee -o pipefail
 
-#Nov 11, 2026
+#Nov 12, 2026
 #Author: Chih-Yuan Yang
-PROJECT_NAME="SoloSeniorWatchRobot"
-BUILD_DIR="$HOME/${PROJECT_NAME}_build"
 
-read -p "How large is your RAM + swap (GiB)?" RAMSize
-if ! [[ "$RAMSize" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
-  echo "Error: RAMSize must be a non-negative number."
+# Project-specific settings live outside this reusable installer. By default,
+# load project.conf next to this script; PROJECT_CONFIG_FILE can override it.
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_CONFIG_FILE="${PROJECT_CONFIG_FILE:-$SCRIPT_DIR/project.conf}"
+if [[ ! -r "$PROJECT_CONFIG_FILE" ]]; then
+  echo "Error: project configuration file not found: $PROJECT_CONFIG_FILE" >&2
   exit 1
 fi
+# shellcheck disable=SC1090
+source "$PROJECT_CONFIG_FILE"
+: "${PROJECT_NAME:?Error: PROJECT_NAME must be defined in $PROJECT_CONFIG_FILE}"
+
+BUILD_DIR="$HOME/${PROJECT_NAME}_build"
+
+# Check system RAM and swap size
+if ! RAMSize=$(awk '
+  /^MemTotal:/  { ram_kib = $2 }
+  /^SwapTotal:/ { swap_kib = $2 }
+  END {
+    if (ram_kib == "" || swap_kib == "") exit 1
+    printf "%.2f", (ram_kib + swap_kib) / 1024 / 1024
+  }
+' /proc/meminfo); then
+  echo "Error: could not read the system RAM and swap sizes from /proc/meminfo." >&2
+  exit 1
+fi
+echo "Detected RAM + swap: ${RAMSize} GiB"
 
 if (( $(echo "$RAMSize < 32" | bc -l) )); then
   echo "You had better have 32G to compile the $PROJECT_NAME program. Otherwise, some applications may not killed during installation. If you don't have enough RAM, enlarge your swap."
@@ -22,13 +43,22 @@ if (( $(echo "$RAMSize < 32" | bc -l) )); then
       echo "Error: '$NewSwapSize' is not a valid number. Please try again."
       exit
     else
-      sudo swapoff /swap.img
-      sudo rm /swap.img
-      sudo fallocate -l ${NewSwapSize}G /swap.img
-      sudo chmod 600 /swap.img
-      sudo mkswap /swap.img
-      sudo swapon /swap.img
-      echo "Swap size has been changed to ${NewSwapSize}G."
+      # Find an active swap file. Swap partitions and zram devices cannot be
+      # resized with these file operations.
+      SWAP_FILE=$(swapon --show=NAME --noheadings | awk '$1 !~ /^\/dev\// && $1 ~ /^\// { print $1; exit }')
+      if [[ -z "$SWAP_FILE" || ! -f "$SWAP_FILE" ]]; then
+        echo "Error: no active swap file was found. Active swap devices are:" >&2
+        swapon --show >&2
+        exit 1
+      fi
+
+      sudo swapoff "$SWAP_FILE"
+      sudo rm "$SWAP_FILE"
+      sudo fallocate -l "${NewSwapSize}G" "$SWAP_FILE"
+      sudo chmod 600 "$SWAP_FILE"
+      sudo mkswap "$SWAP_FILE"
+      sudo swapon "$SWAP_FILE"
+      echo "Swap file $SWAP_FILE has been resized to ${NewSwapSize}G."
     fi
   fi
   read -p "Do you want to continue? [Y/n]" Continue
@@ -65,28 +95,36 @@ else
 fi
 
 if [ "$machine" = "PC" ]; then
-#  read -p "Is your secure boot off in your motherboard's UEFI setting? [y/n]" SecureBoot
-#  if [[ -z "$SecureBoot" || "$SecureBoot" =~ ^[Nn]$ ]]; then
-#    echo "This install.sh script cannot fully automatically install a Nvidia GPU driver because your UEFI secure boot is on. If you want to use this instal.sh to fully automatically install a NVidia GPU driver, you need to set your UEFI secure boot off. Otherwise, you need to install the Nvidia GPU driver manually."
-#    read -p "Do you want to stop the install.sh? [y/n]" StopInstall
-#    if [[ -z "$StopInstall" || "$StopInstall" =~ ^[Nn]$ ]]; then
-#      echo "You can continue to install the $PROJECT_NAME, but you need to install the Nvidia GPU driver manually after the installation."
-#    else
-#      echo "You can run this install.sh again after you set your UEFI secure boot off."
-#      exit  #stop the installation script
-#    fi  
-#  fi
-
   read -r -p "Do you have an Nvidia GPU? [Y/n]" HaveNvidiaGPU
   if [[ -z "$HaveNvidiaGPU" || "$HaveNvidiaGPU" =~ ^[Yy]$ ]]; then
-    read -r -p "What is your GPU model? [3050/4050/4060/4070/4080/4090/5050/5080]" GPUModel
-    GPUModelFirstTwoDigits="${GPUModel:0:2}"
-    read -r -p "How large is your VRAM size in GB? " VRAMSize
-
-    if ! [[ "$VRAMSize" =~ ^[0-9]+$ ]]; then
-      echo "Error: VRAMSize must be a non-negative integer."
+    read -r -p "Have you already installed the Nvidia GPU driver? [Y/n]" HaveNvidiaDriver
+    if [[ "$HaveNvidiaDriver" =~ ^[Nn]$ ]]; then
+      echo "You need to install the Nvidia GPU driver first. You can run this install.sh again after you install the Nvidia GPU driver."
+      exit  #stop the installation script
+    fi
+    # Query the first NVIDIA GPU detected by the installed driver.
+    if ! GPUModelName=$(nvidia-smi --query-gpu=name --format=csv,noheader | sed -n '1p'); then
+      echo "Error: nvidia-smi could not detect an NVIDIA GPU. Check that the driver is installed."
       exit 1
     fi
+    if ! VRAMMiB=$(nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits | sed -n '1p'); then
+      echo "Error: could not read the NVIDIA GPU's VRAM size from nvidia-smi."
+      exit 1
+    fi
+    if [[ -z "$GPUModelName" || ! "$VRAMMiB" =~ ^[0-9]+$ ]]; then
+      echo "Error: nvidia-smi returned incomplete GPU information."
+      exit 1
+    fi
+
+    # Keep the numeric model (for example, 5080) for the CUDA selection below.
+    if [[ "$GPUModelName" =~ ([0-9]{4}) ]]; then
+      GPUModel="${BASH_REMATCH[1]}"
+    else
+      GPUModel="$GPUModelName"
+    fi
+    GPUModelFirstTwoDigits="${GPUModel:0:2}"
+    VRAMSize=$(awk -v vram_mib="$VRAMMiB" 'BEGIN { printf "%d", (vram_mib / 1024) + 0.5 }')
+    echo "Detected NVIDIA GPU: $GPUModelName (${VRAMSize} GiB VRAM)"
   else
     VRAMSize=0
   fi
@@ -202,7 +240,7 @@ else
 fi
 
 
-#intall protobuf 3.19.1
+#install protobuf 3.19.1
 #For Ubuntu 26.04.1, the default protobuf version is 3.21.12.
 #I don't know if 3.21.12 is compatible with MediaPipe v0.10.22. So, I install protobuf 3.19.1.
 cd "$BUILD_DIR"
@@ -219,7 +257,7 @@ sudo ldconfig # refresh shared library cache.
 
 
 #install MediaPipe v0.10.22
-cd ~
+cd "$BUILD_DIR"
 if [ -d "mediapipe" ]; then
     rm -rf mediapipe
 fi
@@ -234,7 +272,7 @@ if [ -d "$PROJECT_NAME" ]; then
 fi
 git clone "https://github.com/yangchihyuan/${PROJECT_NAME}.git"
 #copy our code to the mediapipe folder
-cp -r ~/"$PROJECT_NAME"/Server/mediapipe_addition/* ~/mediapipe/
+cp -r ~/"$PROJECT_NAME"/Server/mediapipe_addition/* "$BUILD_DIR/mediapipe"
 
 #Install bazelisk
 cd "$BUILD_DIR"
@@ -253,7 +291,7 @@ fi
 sudo apt-get -y install mesa-common-dev libegl1-mesa-dev libgles2-mesa-dev
 
 #build libmp library
-cd ~/mediapipe
+cd "$BUILD_DIR/mediapipe"
 #I need to manually change the sha256 value in mediapipe/WORKSPACE if the bazel build command reports a sha256 mismatch error for the AGX Orin case.
 if [ "$machine" = "AGXOrin" ]; then
 #    name = "KleidiAI",
