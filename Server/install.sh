@@ -20,21 +20,32 @@ source "$PROJECT_CONFIG_FILE"
 BUILD_DIR="$HOME/${PROJECT_NAME}_build"
 
 # Check system RAM and swap size
-if ! RAMSize=$(awk '
+# Check system RAM and swap size
+if ! read -r RAMSize SwapSize < <(awk '
   /^MemTotal:/  { ram_kib = $2 }
   /^SwapTotal:/ { swap_kib = $2 }
   END {
-    if (ram_kib == "" || swap_kib == "") exit 1
-    printf "%.2f", (ram_kib + swap_kib) / 1024 / 1024
+    if (ram_kib == "" || swap_kibb == "") {
+      # Fallback check if swap_kib is missing
+      if (ram_kib == "") exit 1
+      swap_kib = 0
+    }
+    printf "%.2f %.2f", ram_kib / 1024 / 1024, swap_kib / 1024 / 1024
   }
 ' /proc/meminfo); then
   echo "Error: could not read the system RAM and swap sizes from /proc/meminfo." >&2
   exit 1
 fi
-echo "Detected RAM + swap: ${RAMSize} GiB"
 
-if (( $(echo "$RAMSize < 32" | bc -l) )); then
-  echo "You had better have 32G to compile the $PROJECT_NAME program. Otherwise, some applications may not killed during installation. If you don't have enough RAM, enlarge your swap."
+# 計算總和供後續判斷使用
+TotalSize=$(echo "$RAMSize + $SwapSize" | bc -l)
+
+echo "Detected RAM:  ${RAMSize} GiB"
+echo "Detected Swap: ${SwapSize} GiB"
+echo "Total (RAM + Swap): ${TotalSize} GiB"
+
+if (( $(echo "$TotalSize < 32" | bc -l) )); then
+  echo "You had better have 32Gib to compile the $PROJECT_NAME program. Otherwise, some applications may be killed during this installation. If you don't have enough RAM, enlarge your swap."
   read -p "Do you want to enlarge your swap? [Y/n]" EnlargeSwap
   if [[ -z "$EnlargeSwap" || "$EnlargeSwap" =~ ^[Yy]$ ]]; then
     read -p "Enter the new swap size (GiB):" NewSwapSize
@@ -621,14 +632,14 @@ sudo apt update
 
 # 5. Install the ROS 2 desktop package
 sudo apt install ros-lyrical-desktop -y
-#add the stirng if the string does not exist in the file. If the string exists, do nothing.
+# Add the string if the string does not exist in the file. If the string exists, do nothing.
 grep -qxF "source /opt/ros/lyrical/setup.bash" ~/.bashrc || echo "source /opt/ros/lyrical/setup.bash" >> ~/.bashrc
 
 #For ROS 2 node developers, we need the colcon build system
 sudo apt install python3-colcon-common-extensions build-essential -y
 
-#Build our own program. We no longer need the program because the program has been moved to the ros2 system. 
-#We no longer need it because now we build the ROS 2
+#Build our own program. We no longer need the program because it has been moved to the ROS 2 system. 
+#We no longer need it because we now build ROS 2
 #cd ~/"$PROJECT_NAME/Server"
 #./build_project.sh "$RobotModel" "$VRAMSize"
 
@@ -638,7 +649,7 @@ if [ -d "temp" ]; then
     rm -rf temp
 fi
 mkdir -p temp
-# this file mediapipe/modules/hand_landmark/handedness.txt is required to run holistic trackiing
+# This file mediapipe/modules/hand_landmark/handedness.txt is required to run holistic tracking
 find ~/mediapipe/mediapipe -type f \( -name "*.txt" \) -exec cp --parents {} temp \;
 cp -r temp/home/$USER/mediapipe/mediapipe .
 rm -rf temp
@@ -650,17 +661,17 @@ rm -rf temp
 #  sudo update-initramfs -u
 #fi
 
-#Dowload media files from internet
+#Dowload media files from the internet
 cd "$BUILD_DIR"
 #wget --no-check-certificate 'https://docs.google.com/uc?export=download&id=1n5GuS6kqABCq5hGLOToFV_11V9mmEHZR' -O $PROJECT_NAME.zip
-#for large files (>100MB), Google Drive will block the download and ask for a confirmation. Press F12 when you use your brower to download the file. In the Network tab, your will see the authentic url.
-#This link fails, why?
+#for large files (>100MB), Google Drive will block the download and ask for a confirmation. Press F12 in your browser to download the file. In the Network tab, you will see the authentic URL.
+#This link fails; why?
 #wget --no-check-certificate 'https://drive.usercontent.google.com/download?id=1zVMH3INErwSuXJ1TF2gfPe2O0HVLu381&export=download&authuser=0&confirm=t&uuid=d4298704-bde8-444d-9ca4-0e36402c1e1f&at=APcXIO3sT6c9dZSljEclJVnWV_OW%3A1770877164167' -O ECICR_MediaFiles.zip
 #unzip ECICR_MediaFiles.zip -d ECICR_MediaFiles
 #cp -r ECICR_MediaFiles/$PROJECT_NAME/* ~/$PROJECT_NAME
 
 
-#for play video and audio in Qt Multimedia
+#for playing video and audio in Qt Multimedia
 #Ubuntu 26.04 removed the GTK2 package libcanberra-gtk-module
 if [ "$VERSION_ID" == "26.04" ]; then
   sudo apt install -y libcanberra-gtk3-module   #for system sound support in Qt Multimedia
@@ -674,13 +685,13 @@ else
   fi 
 fi
 
-#install the desktop file to let users launch the program by clicking the icon
-#copy the icon file to /usr/share/pixmaps, which is a standard directory for storing icons in Linux systems. This allows the system to find and display the icon properly when you launch the program from the application menu.
-#We no longer need the program because the program has been moved to the ros2 system.
+# Install the desktop file to let users launch the program by clicking the icon
+# Copy the icon file to /usr/share/pixmaps, which is a standard directory for storing icons in Linux systems. This allows the system to find and display the icon properly when you launch the program from the application menu.
+# We no longer need the program because it has been moved to the ROS 2 system.
 sudo cp ~/"$PROJECT_NAME/Server/$PROJECT_NAME.png" /usr/share/pixmaps/"$PROJECT_NAME.png"
 mkdir -p ~/.local/share/applications/
 
-#replace the @SERVER_DIR@ in ${PROJECT_NAME}.desktop with the actual path of the Server directory, and copy it to ~/.local/share/applications/
+# Replace the @SERVER_DIR@ in ${PROJECT_NAME}.desktop with the actual path of the Server directory, and copy it to ~/.local/share/applications/
 sed "s|@SERVER_DIR@|$HOME/$PROJECT_NAME/Server|g" \
   "$HOME/$PROJECT_NAME/Server/${PROJECT_NAME}.desktop" \
   > ~/.local/share/applications/"${PROJECT_NAME}.desktop"
@@ -688,14 +699,14 @@ sed "s|@SERVER_DIR@|$HOME/$PROJECT_NAME/Server|g" \
 #update desktop database
 update-desktop-database ~/.local/share/applications/
 
-#you need to logout and login again to let the desktop file work. After that, you can launch the program by clicking the icon "Robot Nurse Helper" on your desktop or application menu.
+# You need to log out and log in again for the desktop file to work. After that, you can launch the program by clicking the "Robot Nurse Helper" icon on your desktop or in the application menu.
 
-#Yolov11-pose needs CuDNN to run its onnx file. It is only need to install in PC. The AGX Orin has its own GPU acceleration library, which is compatible with CuDNN, so we don't need to install CuDNN on AGX Orin.
-#I need to update here because we no longer use Ubuntu 24.04. The keyring becomes different.
-#I have not figure it out.
+#Yolov11-pose needs CuDNN to run its ONNX file. It only needs to be installed on the PC. The AGX Orin has its own GPU acceleration library compatible with CuDNN, so we don't need to install CuDNN on the AGX Orin.
+#I need to update here because we no longer use Ubuntu 24.04. The keyring is different.
+#I have not figured it out.
 if [ "$machine" = "PC" ]; then
   cd "$BUILD_DIR"
-  # Download Ubuntu 24.04 spcific keyring
+  # Download Ubuntu 24.04 specific keyring
   # I did it already. I don't need to do it again
   # wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
   # Install keyring
@@ -704,7 +715,7 @@ if [ "$machine" = "PC" ]; then
   # sudo apt-get update
   # install runtime library for YOLOv11-pose
 
-  #Here is a problem. If my PC has no GPU. How to run CuDNN?
+  #Here is a problem. If my PC has no GPU. How do I run CuDNN?
   if [ "$HaveNvidiaGPU" = "y" ] || [ "$HaveNvidiaGPU" = "Y" ]; then
     sudo apt-get install libcudnn9-cuda-12
     sudo ldconfig
@@ -712,7 +723,7 @@ if [ "$machine" = "PC" ]; then
   fi
 fi
 
-#For the audio_video_receiver program, we need to install python3-protobuf to let the program run properly. The protobuf version installed by the command "sudo apt install libprotobuf-dev" is 3.21.12, which is not compatible with the protobuf version used in the audio_video_receiver program. So, we need to install python3-protobuf to let the program run properly.
+#For the audio_video_receiver program, we need to install python3-protobuf to let the program run properly. The protobuf version installed by "sudo apt install libprotobuf-dev" is 3.21.12, which is not compatible with the protobuf version used by the audio_video_receiver program. So, we need to install python3-protobuf to let the program run properly.
 sudo apt install python3-protobuf
 
 # Build the ROS 2 workspace
@@ -731,7 +742,7 @@ colcon build --symlink-install \
     -DUSE_EXTERNAL_GPU="$USE_EXTERNAL_GPU"
 
 ##############################
-#install AnythingLLM for RAG
+# Install AnythingLLM for RAG
 ##############################
 #The library is required by AnythingLLM, but missing in Ubuntu 22.04, 24.04, and 26.04.
 sudo apt install libfuse2
@@ -743,7 +754,7 @@ curl -fsSL https://cdn.anythingllm.com/latest/installer.sh -o installer.sh
 # Make the script executable
 chmod +x installer.sh
  
-# Run the script. Give it a default y to answer the question.
+# Run the script. Press Enter to accept the default "y" to answer the question.
 echo "y" | ./installer.sh
 
 
