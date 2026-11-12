@@ -8,9 +8,10 @@ The easiest way to install our program is to execute the following script.
 ```sh
 cd ~
 wget -O install.sh https://raw.githubusercontent.com/yangchihyuan/SoloSeniorWatchRobot/refs/heads/main/Server/install.sh
+wget -O project.conf https://raw.githubusercontent.com/yangchihyuan/SoloSeniorWatchRobot/refs/heads/main/Server/project.conf
 chmod +x install.sh
-./install.sh
 echo "Don't use sudo ./install.sh. That is wrong."
+./install.sh
 ```
 
 It will ask for your sudo password several times, because the sudo password will expire atfer 15 minutes, but the process of installation take more than 1 hour to download and compile all required libraries.
