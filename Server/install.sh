@@ -25,27 +25,27 @@ if ! read -r RAMSize SwapSize < <(awk '
   /^MemTotal:/  { ram_kib = $2 }
   /^SwapTotal:/ { swap_kib = $2 }
   END {
-    if (ram_kib == "" || swap_kibb == "") {
+    if (ram_kib == "" || swap_kib == "") {
       # Fallback check if swap_kib is missing
       if (ram_kib == "") exit 1
       swap_kib = 0
     }
-    printf "%.2f %.2f", ram_kib / 1024 / 1024, swap_kib / 1024 / 1024
+    printf "%.2f %.2f\n", ram_kib / 1024 / 1024, swap_kib / 1024 / 1024
   }
 ' /proc/meminfo); then
   echo "Error: could not read the system RAM and swap sizes from /proc/meminfo." >&2
   exit 1
 fi
 
-# 計算總和供後續判斷使用
+# Sum them up
 TotalSize=$(echo "$RAMSize + $SwapSize" | bc -l)
 
 echo "Detected RAM:  ${RAMSize} GiB"
 echo "Detected Swap: ${SwapSize} GiB"
 echo "Total (RAM + Swap): ${TotalSize} GiB"
 
-if (( $(echo "$TotalSize < 32" | bc -l) )); then
-  echo "You had better have 32Gib to compile the $PROJECT_NAME program. Otherwise, some applications may be killed during this installation. If you don't have enough RAM, enlarge your swap."
+if (( $(echo "$TotalSize < 30" | bc -l) )); then
+  echo "You had better have 30Gib to compile the $PROJECT_NAME program. Otherwise, some applications may be killed during this installation. If you don't have enough RAM, enlarge your swap."
   read -p "Do you want to enlarge your swap? [Y/n]" EnlargeSwap
   if [[ -z "$EnlargeSwap" || "$EnlargeSwap" =~ ^[Yy]$ ]]; then
     read -p "Enter the new swap size (GiB):" NewSwapSize
