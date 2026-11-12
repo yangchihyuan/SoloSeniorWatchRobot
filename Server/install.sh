@@ -492,6 +492,7 @@ git clone https://github.com/sb-ai-lab/EmotiEffLib.git
 cd EmotiEffLib
 git submodule update --init --recursive
 cd emotieffcpplib
+mkdir -p build
 cd build
 #I am not sure if this command works. Check it later.
 #Their CMakeLists.txt file needs onnxruntime lib folder, but there is no lib64 folder.
