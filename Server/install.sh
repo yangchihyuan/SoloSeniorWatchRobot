@@ -632,30 +632,14 @@ sudo apt update
 
 # 5. Install the ROS 2 desktop package
 sudo apt install ros-lyrical-desktop -y
-# Add the string if the string does not exist in the file. If the string exists, do nothing.
+# Add the string if the string does not exist in the file. If the string exists, skip it.
 grep -qxF "source /opt/ros/lyrical/setup.bash" ~/.bashrc || echo "source /opt/ros/lyrical/setup.bash" >> ~/.bashrc
 
 #For ROS 2 node developers, we need the colcon build system
 sudo apt install python3-colcon-common-extensions build-essential -y
 
-#Build our own program. We no longer need the program because it has been moved to the ROS 2 system. 
-#We no longer need it because we now build ROS 2
-#cd ~/"$PROJECT_NAME/Server"
-#./build_project.sh "$RobotModel" "$VRAMSize"
 
-#copy the required mediapipe files to the ROS system
-#MediaPipe ver 0.10.22 have some text files missing in the execution directory. Thus, I need manually copy them.
-#MediaPipe ver 0.10.22 was released on Mar 2025. Should I update it?
-if [ -d "temp" ]; then
-    rm -rf temp
-fi
-mkdir -p temp
-cp -r "$BUILD_DIR/mediapipe/bazel-bin/mediapipe/examples/desktop/libmp/libmp_gpu.so.runfiles/mediapipe/mediapipe" temp
-# This file mediapipe/modules/hand_landmark/handedness.txt is required to run holistic tracking
-find "$BUILD_DIR/mediapipe/mediapipe" -type f \( -name "*.txt" \) -exec cp --parents {} temp \;
-cp -r temp/home/$USER/mediapipe/mediapipe .
-rm -rf temp
-
+#Do I still need to install the nvidia-power-management.conf file? I need to test it later.
 #copy the file to prevent Nvidia GPU from being unavailable after laptop suspends
 #Does this problem remain in Ubuntu 26.04? I need to test it later.
 #if [ "$machine" = "PC" ] && [[ "$GPUModel" == "3050laptop" || "$GPUModel" == "4070laptop" ]]; then
@@ -744,6 +728,30 @@ colcon build --symlink-install \
     
 #    \
 #    -DUSE_EXTERNAL_GPU="$USE_EXTERNAL_GPU"
+
+#create a symbolic link of MediaPipe's runtime resources for the server_gui node of the ROS 2 system
+#MediaPipe ver 0.10.22 have some text files missing in the execution directory. Thus, I need manually copy them.
+#MediaPipe ver 0.10.22 was released on Mar 2025. Should I update it?
+#if [ -d "temp" ]; then
+#    rm -rf temp
+#fi
+#mkdir -p temp
+#cp -r "$BUILD_DIR/mediapipe/bazel-bin/mediapipe/examples/desktop/libmp/libmp_gpu.so.runfiles/mediapipe/mediapipe" temp
+# This file mediapipe/modules/hand_landmark/handedness.txt is required to run holistic tracking
+#find "$BUILD_DIR/mediapipe/mediapipe" -type f \( -name "*.txt" \) -exec cp --parents {} temp \;
+#cp -r temp/home/$USER/mediapipe/mediapipe .
+#rm -rf temp
+source /opt/ros/lyrical/setup.bash
+source $HOME/$PROJECT_NAME/ros2_ws/install/setup.bash
+
+bazel_bin="$BUILD_DIR/mediapipe/bazel-bin"
+resources="$bazel_bin/mediapipe/examples/desktop/libmp/libmp_gpu.so.runfiles/mediapipe/mediapipe"
+#Queries the ROS 2 environment for the installation prefix of the server_gui package.
+share="$(ros2 pkg prefix server_gui)/share/server_gui"
+
+#create the symbolic link to the MediaPipe resources in the share directory of the server_gui package. This allows the server_gui node to access the necessary MediaPipe resources at runtime.
+ln -sfn "$resources" "$share/mediapipe"
+
 
 ##############################
 # Install AnythingLLM for RAG
