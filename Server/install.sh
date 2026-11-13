@@ -643,14 +643,16 @@ sudo apt install python3-colcon-common-extensions build-essential -y
 #cd ~/"$PROJECT_NAME/Server"
 #./build_project.sh "$RobotModel" "$VRAMSize"
 
-#copy the required mediapipe files to Server
-cp -r ~/mediapipe/bazel-bin/mediapipe/examples/desktop/libmp/libmp_gpu.so.runfiles/mediapipe/mediapipe .
+#copy the required mediapipe files to the ROS system
+#MediaPipe ver 0.10.22 have some text files missing in the execution directory. Thus, I need manually copy them.
+#MediaPipe ver 0.10.22 was released on Mar 2025. Should I update it?
 if [ -d "temp" ]; then
     rm -rf temp
 fi
 mkdir -p temp
+cp -r "$BUILD_DIR/mediapipe/bazel-bin/mediapipe/examples/desktop/libmp/libmp_gpu.so.runfiles/mediapipe/mediapipe" temp
 # This file mediapipe/modules/hand_landmark/handedness.txt is required to run holistic tracking
-find ~/mediapipe/mediapipe -type f \( -name "*.txt" \) -exec cp --parents {} temp \;
+find "$BUILD_DIR/mediapipe/mediapipe" -type f \( -name "*.txt" \) -exec cp --parents {} temp \;
 cp -r temp/home/$USER/mediapipe/mediapipe .
 rm -rf temp
 
@@ -738,8 +740,10 @@ cd ~/"$PROJECT_NAME/ros2_ws"
 colcon build --symlink-install \
   --packages-select audio_video_receiver server_gui my_robot_bringup \
   --cmake-args \
-    -DROBOT_MODEL="$RobotModel" \
-    -DUSE_EXTERNAL_GPU="$USE_EXTERNAL_GPU"
+    -DROBOT_MODEL="$RobotModel" 
+    
+#    \
+#    -DUSE_EXTERNAL_GPU="$USE_EXTERNAL_GPU"
 
 ##############################
 # Install AnythingLLM for RAG
@@ -753,7 +757,9 @@ curl -fsSL https://cdn.anythingllm.com/latest/installer.sh -o installer.sh
  
 # Make the script executable
 chmod +x installer.sh
- 
+
+export ANYTHING_LLM_INSTALL_DIR="$BUILD_DIR"
+#sh install.sh 
 # Run the script. Press Enter to accept the default "y" to answer the question.
 echo "y" | ./installer.sh
 

@@ -1,5 +1,5 @@
 {
-    "cmake.sourceDirectory": "/home/chihyuan/SoloSeniorWatchRobot/Server",
+    "cmake.sourceDirectory": "/home/chihyuan/SoloSeniorWatchRobot/ros2_ws/src/server_gui",
     "files.associations": {
         "array": "cpp",
         "atomic": "cpp",

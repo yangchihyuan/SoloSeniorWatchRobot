@@ -76,8 +76,9 @@ endfunction()
 list(APPEND CMAKE_PREFIX_PATH "usr/local")
 
 # use Mediapipe's Protobuf
-set(MEDIAPIPE_DIR "$ENV{HOME}/mediapipe")
-get_filename_component(MEDIAPIPE_DIRNAME "${MEDIAPIPE_DIR}" NAME)
+set(PROJECT_STRING "SoloSeniorWatchRobot")
+set(MEDIAPIPE_DIR "$ENV{HOME}/${PROJECT_STRING}_build/mediapipe")
+get_filename_component(MEDIAPIPE_DIRNAME "${MEDIAPIPE_DIR}" NAME)    #the result is "mediapipe"
 
 #protocol buffer v3.19.1 is used by mediapipe
 #The variable protobuf_source_dir is used in the libprotobuf.cmake file
