@@ -722,12 +722,13 @@ else
 fi
 cd ~/"$PROJECT_NAME/ros2_ws"
 colcon build --symlink-install \
-  --packages-select audio_video_receiver server_gui my_robot_bringup \
+  --packages-select audio_video_receiver my_robot_bringup
+
+#Only the server_gui package needs to be built with the RobotModel argument. The other packages do not need this argument.
+colcon build --symlink-install \
+  --packages-select server_gui \
   --cmake-args \
-    -DROBOT_MODEL="$RobotModel" 
-    
-#    \
-#    -DUSE_EXTERNAL_GPU="$USE_EXTERNAL_GPU"
+    -DROBOT_MODEL="$RobotModel"
 
 #create a symbolic link of MediaPipe's runtime resources for the server_gui node of the ROS 2 system
 #MediaPipe ver 0.10.22 have some text files missing in the execution directory. Thus, I need manually copy them.
