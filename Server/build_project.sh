@@ -38,11 +38,6 @@ case "$RobotModel" in
     ;;
 esac
 
-if (( VRAMSize > 0 )); then
-  USE_GPU=ON
-else
-  USE_GPU=OFF
-fi
 
 # Build the ROS 2 workspace
 if [ -f /opt/ros/lyrical/setup.bash ]; then
@@ -57,8 +52,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PARENT_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$PARENT_DIR"/ros2_ws
+
 colcon build --symlink-install \
-  --packages-select audio_video_receiver server_gui my_robot_bringup \
+  --packages-select server_gui \
   --cmake-args \
-    -DROBOT_MODEL="$CMAKE_ROBOT_MODEL" \
-    -DUSE_GPU="$USE_GPU"
+    -DROBOT_MODEL="$RobotModel"
+
+#The order is important. The server_gui package must be built first because it is depended by the my_robot_bringup package.
+colcon build --symlink-install \
+  --packages-select audio_video_receiver my_robot_bringup
+
+

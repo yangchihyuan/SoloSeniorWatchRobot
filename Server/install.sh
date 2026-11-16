@@ -528,10 +528,21 @@ if [ "$machine" = "PC" ]; then
   cd "$BUILD_DIR/"
   #This command seems unnecenssary is from https://ollama.com/docs/installation
   curl.snap-acked        #ollama changed its installation script. There is a text explanation in the script. It only accepts Snap-curl and we need to use this command first to prevent a warning message
-  curl -fsSL https://ollama.com/install.sh | sh
+  #check if ollama is already installed. If it is not installed, install it.
+  if ! command -v ollama &> /dev/null; then
+    echo "ollama is not installed. Installing ollama..."
+    curl -fsSL https://ollama.com/install.sh | sh
+  else
+    echo "ollama is already installed. Skipping installation."
+  fi
 elif [ "$machine" = "AGXOrin" ]; then
   #There snap program on AGX Orin's Ubuntu is restricted, so we need to use wget
+  if ! command -v ollama &> /dev/null; then
+    echo "ollama is not installed. Installing ollama..."
   wget -O- https://ollama.com/install.sh | sh
+  else
+    echo "ollama is already installed. Skipping installation."
+  fi
 fi
 
 #launch the service first
@@ -721,14 +732,16 @@ else
   exit 1
 fi
 cd ~/"$PROJECT_NAME/ros2_ws"
-colcon build --symlink-install \
-  --packages-select audio_video_receiver my_robot_bringup
 
 #Only the server_gui package needs to be built with the RobotModel argument. The other packages do not need this argument.
 colcon build --symlink-install \
   --packages-select server_gui \
   --cmake-args \
     -DROBOT_MODEL="$RobotModel"
+
+#The order is important. The server_gui package must be built first because it is depended by the my_robot_bringup package.
+colcon build --symlink-install \
+  --packages-select audio_video_receiver my_robot_bringup
 
 #create a symbolic link of MediaPipe's runtime resources for the server_gui node of the ROS 2 system
 #MediaPipe ver 0.10.22 have some text files missing in the execution directory. Thus, I need manually copy them.
